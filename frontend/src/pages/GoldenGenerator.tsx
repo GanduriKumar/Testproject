@@ -11,7 +11,7 @@ function Card({ title, children }: { title: string, children: React.ReactNode })
 
 type Domain = 'commerce' | 'banking'
 
-type ConversationTurn = { role: 'user' | 'assistant', content: string }
+type ConversationTurn = { role: 'user' | 'assistant', text: string }
 
 type DatasetDoc = {
   dataset_id: string
@@ -66,12 +66,12 @@ function buildConversation(domain: Domain, difficulty: 'easy'|'medium'|'hard', o
       {
         conversation_id: convoId,
         turns: [
-          { role: 'user', content: userProblem },
-          { role: 'assistant', content: assistantProbe },
-          { role: 'user', content: userDetails },
-          { role: 'assistant', content: assistantPolicy },
-          { role: 'user', content: 'Thanks, what can you do for me now?' },
-          { role: 'assistant', content: assistantResolution },
+          { role: 'user', text: userProblem },
+          { role: 'assistant', text: assistantProbe },
+          { role: 'user', text: userDetails },
+          { role: 'assistant', text: assistantPolicy },
+          { role: 'user', text: 'Thanks, what can you do for me now?' },
+          { role: 'assistant', text: assistantResolution },
         ],
       }
     ]

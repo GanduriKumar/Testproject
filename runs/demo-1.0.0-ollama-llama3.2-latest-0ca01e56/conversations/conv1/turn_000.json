@@ -1,0 +1,52 @@
+{
+  "run_id": "demo-1.0.0-ollama-llama3.2-latest-0ca01e56",
+  "provider": "ollama",
+  "model": "llama3.2:latest",
+  "conversation_id": "conv1",
+  "turn_index": 0,
+  "state": {
+    "user_intent": "refund",
+    "decision": null,
+    "next_action": null,
+    "policy_flags": [],
+    "notes": null,
+    "order_id": null,
+    "items": null,
+    "totals": null,
+    "refund_amount": null
+  },
+  "context_audit": {
+    "used_turn_count": 1,
+    "truncated": false,
+    "token_estimate": 40,
+    "max_tokens": 2048
+  },
+  "request": {
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are an assistant for commerce. Use the following current state to answer succinctly and accurately.\nSTATE={\"user_intent\":\"refund\"}"
+      },
+      {
+        "role": "user",
+        "content": "I want a refund for order A1"
+      }
+    ]
+  },
+  "response": {
+    "ok": true,
+    "content": "I'm happy to assist you with your refund request. Can I please confirm some details about your order A1?\n\n* Order Number: A1\n* Reason for Refund (as stated in your request): Refund\n\nPlease note that our refund policy may require additional information or verification before processing your refund. Would you like me to look into this further?",
+    "latency_ms": 10170,
+    "provider_meta": {
+      "total_duration": 8618978400,
+      "load_duration": 334320600,
+      "prompt_eval_count": 59,
+      "eval_count": 73
+    },
+    "error": null
+  },
+  "timestamps": {
+    "started_at": "2026-01-07T15:52:58.739702+00:00",
+    "ended_at": "2026-01-07T15:53:08.910928+00:00"
+  }
+}

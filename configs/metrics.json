@@ -1,0 +1,30 @@
+{
+  "metrics": [
+    {
+      "name": "exact_match",
+      "enabled": true,
+      "weight": 1
+    },
+    {
+      "name": "semantic_similarity",
+      "enabled": true,
+      "weight": 1,
+      "threshold": 0.8
+    },
+    {
+      "name": "consistency",
+      "enabled": true,
+      "weight": 1
+    },
+    {
+      "name": "adherence",
+      "enabled": true,
+      "weight": 1
+    },
+    {
+      "name": "hallucination",
+      "enabled": true,
+      "weight": 1
+    }
+  ]
+}

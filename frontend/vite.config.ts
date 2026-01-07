@@ -13,6 +13,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/goldens': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/version': {
         target: 'http://localhost:8000',
         changeOrigin: true,

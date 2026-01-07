@@ -1,0 +1,79 @@
+{
+  "run_id": "demo-1.0.0-ollama-llama3.2-latest-0ca01e56",
+  "dataset_id": "demo",
+  "model_spec": "ollama:llama3.2:latest",
+  "conversations": [
+    {
+      "conversation_id": "conv1",
+      "turns": [
+        {
+          "turn_index": 0,
+          "metrics": {
+            "exact": {
+              "metric": "exact",
+              "pass": false,
+              "output_norm": "i'm happy to assist you with your refund request. can i please confirm some details about your order a1? * order number: a1 * reason for refund (as stated in your request): refund please note that our refund policy may require additional information or verification before processing your refund. would you like me to look into this further?",
+              "variants_norm": [
+                "please share the order id.",
+                "could you provide your order id?"
+              ]
+            },
+            "consistency": {
+              "metric": "consistency",
+              "pass": true,
+              "reasons": []
+            },
+            "adherence": {
+              "metric": "adherence",
+              "pass": true,
+              "reasons": []
+            },
+            "hallucination": {
+              "metric": "hallucination",
+              "pass": false,
+              "reasons": [
+                "unseen order ids: ['Number']"
+              ]
+            }
+          }
+        },
+        {
+          "turn_index": 2,
+          "metrics": {
+            "consistency": {
+              "metric": "consistency",
+              "pass": true,
+              "reasons": []
+            },
+            "adherence": {
+              "metric": "adherence",
+              "pass": true,
+              "reasons": []
+            },
+            "hallucination": {
+              "metric": "hallucination",
+              "pass": true,
+              "reasons": []
+            }
+          }
+        }
+      ],
+      "summary": {
+        "conversation_pass": false,
+        "final_outcome": {
+          "metric": "final_outcome",
+          "pass": false,
+          "reasons": [
+            "decision mismatch: expected=ALLOW, actual=None",
+            "next_action mismatch: expected=issue_refund, actual=None"
+          ]
+        },
+        "high_severity_violation": false,
+        "severity_reasons": [],
+        "turns_total": 2,
+        "turns_passed": 0,
+        "weighted_pass_rate": 0.0
+      }
+    }
+  ]
+}

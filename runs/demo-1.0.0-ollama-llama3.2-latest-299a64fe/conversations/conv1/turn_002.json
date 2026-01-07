@@ -1,0 +1,60 @@
+{
+  "run_id": "demo-1.0.0-ollama-llama3.2-latest-299a64fe",
+  "provider": "ollama",
+  "model": "llama3.2:latest",
+  "conversation_id": "conv1",
+  "turn_index": 2,
+  "state": {
+    "user_intent": "refund",
+    "decision": null,
+    "next_action": null,
+    "policy_flags": [],
+    "notes": null,
+    "order_id": null,
+    "items": null,
+    "totals": null,
+    "refund_amount": null
+  },
+  "context_audit": {
+    "used_turn_count": 3,
+    "truncated": false,
+    "token_estimate": 49,
+    "max_tokens": 2048
+  },
+  "request": {
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are an assistant for commerce. Use the following current state to answer succinctly and accurately.\nSTATE={\"user_intent\":\"refund\"}"
+      },
+      {
+        "role": "user",
+        "content": "I want a refund for order A1"
+      },
+      {
+        "role": "assistant",
+        "content": "Please share the order ID."
+      },
+      {
+        "role": "user",
+        "content": "Order ID is A1."
+      }
+    ]
+  },
+  "response": {
+    "ok": true,
+    "content": "To process your refund, I'll need to locate Order A1 in our system. Can you please provide me with more information about why you'd like a refund? Was the product not as described or did it arrive damaged?",
+    "latency_ms": 8069,
+    "provider_meta": {
+      "total_duration": 6591965100,
+      "load_duration": 346600300,
+      "prompt_eval_count": 81,
+      "eval_count": 46
+    },
+    "error": null
+  },
+  "timestamps": {
+    "started_at": "2026-01-07T15:51:38.056718+00:00",
+    "ended_at": "2026-01-07T15:51:46.129290+00:00"
+  }
+}

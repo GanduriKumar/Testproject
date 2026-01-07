@@ -1,0 +1,11 @@
+{
+  "dataset_id": "demo",
+  "model_spec": "ollama:llama3.2:latest",
+  "metrics": [
+    "hallucination"
+  ],
+  "thresholds": {
+    "semantic_threshold": 0.8
+  },
+  "context": {}
+}
