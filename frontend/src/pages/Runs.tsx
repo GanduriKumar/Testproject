@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Card from '../components/Card'
 import Button from '../components/Button'
+import CircularProgress from '../components/CircularProgress'
 import Badge from '../components/Badge'
 import { Input, Select, Checkbox } from '../components/Form'
 
@@ -183,13 +184,21 @@ export default function RunsPage() {
               </span>
             </div>
             {status && (
-              <>
-                <div className="h-2 w-full bg-primary/10 rounded">
-                  <div className="h-2 rounded bg-primary" style={{ width: `${Math.round(status.progress_pct * 100)}%` }} />
-                </div>
-                <div className="text-xs text-gray-600">{status.completed_conversations} / {status.total_conversations} ({Math.round(status.progress_pct * 100)}%)</div>
-                {status.error && <div className="text-danger">{status.error}</div>}
-              </>
+              <div className="flex items-center gap-4">
+                {(() => {
+                  const pct = Math.max(0, Math.min(100, Math.round(status.progress_pct)))
+                  return (
+                    <>
+                      <CircularProgress value={pct} />
+                      <div className="text-xs text-gray-700">
+                        <div>{status.completed_conversations} / {status.total_conversations}</div>
+                        <div className="text-gray-500">{pct}%</div>
+                        {status.error && <div className="text-danger">{status.error}</div>}
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
             )}
           </div>
         </Card>
