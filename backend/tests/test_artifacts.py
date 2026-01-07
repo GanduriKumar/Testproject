@@ -9,7 +9,7 @@ def sample_results():
     return {
         "run_id": "rid",
         "dataset_id": "ds1",
-        "model_spec": "ollama:llama3.2:2b",
+        "model_spec": "ollama:llama3.2:latest",
         "conversations": [
             {
                 "conversation_id": "c1",

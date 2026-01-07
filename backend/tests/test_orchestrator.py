@@ -37,7 +37,7 @@ async def test_orchestrator_happy_path(monkeypatch):
             return {"response": {"ok": True}}
         monkeypatch.setattr(type(orch._runner), 'run_turn', fake_run_turn, raising=True)
 
-        jr = orch.submit(dataset_id='commerce_sample', model_spec='ollama:llama3.2:2b', config={"metrics": ["exact"], "thresholds": {}})
+        jr = orch.submit(dataset_id='commerce_sample', model_spec='ollama:llama3.2:latest', config={"metrics": ["exact"], "thresholds": {}})
         orch.start(jr.job_id)
         res = await orch.wait(jr.job_id)
         assert res.state == 'succeeded'
@@ -68,7 +68,7 @@ async def test_orchestrator_cancel(monkeypatch):
             return {"response": {"ok": True}}
         monkeypatch.setattr(type(orch._runner), 'run_turn', slow_run_turn, raising=True)
 
-        jr = orch.submit(dataset_id='commerce_sample', model_spec='ollama:llama3.2:2b', config={})
+        jr = orch.submit(dataset_id='commerce_sample', model_spec='ollama:llama3.2:latest', config={})
         orch.start(jr.job_id)
         orch.cancel(jr.job_id)
         res = await orch.wait(jr.job_id)

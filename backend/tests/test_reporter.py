@@ -10,7 +10,7 @@ def test_render_report_html_smoke():
         dummy = {
             'run_id': 'rid',
             'dataset_id': 'ds',
-            'model_spec': 'ollama:llama3.2:2b',
+            'model_spec': 'ollama:llama3.2:latest',
             'conversations': [
                 {
                     'conversation_id': 'c1',

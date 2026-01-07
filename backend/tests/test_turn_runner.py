@@ -26,7 +26,7 @@ async def test_turn_runner_persists(monkeypatch):
         rec = await runner.run_turn(
             run_id="runx",
             provider="ollama",
-            model="llama3.2:2b",
+            model="llama3.2:latest",
             domain="commerce",
             conversation_id="conv1",
             turn_index=1,

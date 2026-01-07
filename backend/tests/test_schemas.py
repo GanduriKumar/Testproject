@@ -49,7 +49,7 @@ def test_run_config_schema_valid():
     sample = {
         "run_id": "run-001",
         "datasets": ["commerce_sample"],
-        "models": ["ollama:llama3.2:2b"],
+        "models": ["ollama:llama3.2:latest"],
         "metrics": ["exact", "semantic"],
         "thresholds": {"semantic": 0.8},
         "concurrency": 1

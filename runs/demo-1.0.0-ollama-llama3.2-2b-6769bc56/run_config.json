@@ -1,0 +1,12 @@
+{
+  "dataset_id": "demo",
+  "model_spec": "ollama:llama3.2:2b",
+  "metrics": [
+    "exact",
+    "semantic"
+  ],
+  "thresholds": {
+    "semantic": 0.8
+  },
+  "context": {}
+}

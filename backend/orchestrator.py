@@ -7,8 +7,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from dataset_repo import DatasetRepository
-from turn_runner import TurnRunner
+try:
+    from .dataset_repo import DatasetRepository
+    from .turn_runner import TurnRunner
+    from .artifacts import RunArtifactWriter
+    from .metrics import exact_match, semantic_similarity
+    from .metrics_extra import consistency, adherence, hallucination
+    from .conversation_scoring import aggregate_conversation
+except ImportError:  # test fallback
+    from backend.dataset_repo import DatasetRepository
+    from backend.turn_runner import TurnRunner
+    from backend.artifacts import RunArtifactWriter
+    from backend.metrics import exact_match, semantic_similarity
+    from backend.metrics_extra import consistency, adherence, hallucination
+    from backend.conversation_scoring import aggregate_conversation
 
 
 JobState = str  # 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
@@ -55,6 +67,7 @@ class Orchestrator:
         self.jobs: Dict[str, JobRecord] = {}
         self._id_seq = 0
         self._runner = TurnRunner(self.runs_root)
+        self._writer = RunArtifactWriter(self.runs_root)
 
     @staticmethod
     def parse_model_spec(model_spec: str) -> tuple[str, str]:
@@ -89,6 +102,7 @@ class Orchestrator:
             ds = self.repo.get_dataset(jr.config["dataset_id"])
             provider, model = self.parse_model_spec(jr.config["model_spec"])  # e.g., 'ollama', 'llama3.2:2b'
             domain = ds.get("metadata", {}).get("domain", "commerce")
+            metrics_wanted: List[str] = list(jr.config.get("metrics") or ["exact"])  # default to exact only
 
             # Ensure run folder exists even if downstream is mocked
             run_folder = self.runs_root / jr.run_id
@@ -116,6 +130,91 @@ class Orchestrator:
                 jr.completed_conversations += 1
                 jr.progress_pct = int(jr.completed_conversations * 100 / max(1, jr.total_conversations))
                 jr.updated_at = _now_iso()
+
+            # Aggregate results across conversations and write artifacts
+            results: Dict[str, Any] = {
+                "run_id": jr.run_id,
+                "dataset_id": ds.get("dataset_id"),
+                "model_spec": jr.config.get("model_spec"),
+                "conversations": [],
+            }
+
+            for conv in ds.get("conversations", []):
+                cid = conv.get("conversation_id")
+                conv_dir = self.runs_root / jr.run_id / "conversations" / cid
+                turn_files = sorted(conv_dir.glob("turn_*.json"))
+                per_turn: List[Dict[str, Any]] = []
+                # build golden maps
+                golden_entry = None
+                golden_outcome: Dict[str, Any] = {}
+                golden_constraints: Dict[str, Any] | None = None
+                try:
+                    g = self.repo.get_golden(cid)
+                    golden_entry = {t.get("turn_index"): (t.get("expected", {}) or {}).get("variants", []) for t in (g.get("entry", {}).get("turns", []) or [])}
+                    golden_outcome = g.get("entry", {}).get("final_outcome", {}) or {}
+                    if not golden_outcome:
+                        golden_outcome = g.get("final_outcome", {}) or {}
+                    golden_constraints = g.get("entry", {}).get("constraints") or g.get("constraints")
+                except Exception:
+                    pass
+
+                last_state: Dict[str, Any] = {}
+                for tf in turn_files:
+                    try:
+                        rec = json.loads(tf.read_text(encoding="utf-8"))
+                    except Exception:
+                        continue
+                    out_text = ((rec.get("response", {}) or {}).get("content")) or ""
+                    uidx = int(rec.get("turn_index", 0))
+                    assistant_idx = uidx + 1  # map to assistant turn in golden
+                    mets: Dict[str, Any] = {}
+                    # exact
+                    exp_variants = []
+                    if golden_entry and assistant_idx in golden_entry:
+                        exp_variants = golden_entry[assistant_idx]
+                        try:
+                            mets["exact"] = exact_match(out_text, exp_variants)
+                        except Exception as e:
+                            mets["exact"] = {"metric": "exact", "pass": False, "error": str(e)}
+                        if "semantic" in metrics_wanted:
+                            try:
+                                # semantic may fail if embeddings not available
+                                thr = (jr.config.get("thresholds", {}) or {}).get("semantic")
+                                mets["semantic"] = await semantic_similarity(out_text, exp_variants, threshold=thr)
+                            except Exception as e:
+                                mets["semantic"] = {"metric": "semantic", "pass": False, "error": str(e)}
+                    # policy/consistency metrics don't require gold variants
+                    try:
+                        mets["consistency"] = consistency(out_text, rec.get("state") or {})
+                    except Exception as e:
+                        mets["consistency"] = {"metric": "consistency", "pass": False, "error": str(e)}
+                    try:
+                        mets["adherence"] = adherence(out_text, golden_constraints)
+                    except Exception as e:
+                        mets["adherence"] = {"metric": "adherence", "pass": False, "error": str(e)}
+                    try:
+                        history_msgs = [m.get("content", "") for m in (rec.get("request", {}) or {}).get("messages", [])]
+                        mets["hallucination"] = hallucination(out_text, rec.get("state") or {}, history_msgs)
+                    except Exception as e:
+                        mets["hallucination"] = {"metric": "hallucination", "pass": False, "error": str(e)}
+
+                    per_turn.append({"turn_index": uidx, "metrics": mets})
+                    last_state = rec.get("state") or last_state
+
+                # conversation summary
+                summary = aggregate_conversation(per_turn, last_state or {}, golden_outcome or {})
+                results["conversations"].append({
+                    "conversation_id": cid,
+                    "turns": per_turn,
+                    "summary": summary,
+                })
+
+            # persist results
+            self._writer.write_results_json(jr.run_id, results)
+            try:
+                self._writer.write_results_csv(jr.run_id, results)
+            except Exception:
+                pass
 
             jr.state = "succeeded"
             jr.updated_at = _now_iso()

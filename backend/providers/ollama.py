@@ -3,7 +3,10 @@ import time
 from typing import Dict, Any, List
 import httpx
 
-from providers.types import ProviderRequest, ProviderResponse
+try:
+    from .types import ProviderRequest, ProviderResponse
+except ImportError:
+    from providers.types import ProviderRequest, ProviderResponse
 
 class OllamaProvider:
     def __init__(self, host: str = "http://localhost:11434") -> None:

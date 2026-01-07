@@ -5,10 +5,16 @@ from typing import Any, Dict, Optional
 import os
 from pathlib import Path
 
-from dataset_repo import DatasetRepository
-from orchestrator import Orchestrator
-from artifacts import RunArtifactWriter, RunArtifactReader
-from reporter import Reporter
+try:
+    from .dataset_repo import DatasetRepository
+    from .orchestrator import Orchestrator
+    from .artifacts import RunArtifactWriter, RunArtifactReader
+    from .reporter import Reporter
+except ImportError:  # fallback for test runs importing as top-level modules
+    from backend.dataset_repo import DatasetRepository
+    from backend.orchestrator import Orchestrator
+    from backend.artifacts import RunArtifactWriter, RunArtifactReader
+    from backend.reporter import Reporter
 
 APP_VERSION = "0.1.0-mvp"
 
@@ -45,7 +51,7 @@ app.state.reporter = Reporter(Path(__file__).resolve().parent / "templates")
 
 class StartRunRequest(BaseModel):
     dataset_id: str
-    model_spec: str  # e.g., "ollama:llama3.2:2b" or "gemini:gemini-2.5"
+    model_spec: str  # e.g., "ollama:llama3.2:latest" or "gemini:gemini-2.5"
     metrics: Optional[list[str]] = None
     thresholds: Optional[dict[str, Any]] = None
     context: Optional[dict[str, Any]] = None

@@ -2,8 +2,12 @@ from __future__ import annotations
 import os
 from typing import Dict
 
-from providers.ollama import OllamaProvider
-from providers.gemini import GeminiProvider
+try:
+    from .ollama import OllamaProvider
+    from .gemini import GeminiProvider
+except ImportError:
+    from providers.ollama import OllamaProvider
+    from providers.gemini import GeminiProvider
 
 class ProviderRegistry:
     def __init__(self) -> None:

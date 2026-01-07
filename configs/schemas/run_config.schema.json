@@ -7,7 +7,7 @@
   "properties": {
     "run_id": {"type": "string"},
     "datasets": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    "models": {"type": "array", "items": {"type": "string", "enum": ["ollama:llama3.2:2b", "gemini:gemini-2.5"]}, "minItems": 1},
+    "models": {"type": "array", "items": {"type": "string", "enum": ["ollama:llama3.2:latest", "gemini:gemini-2.5"]}, "minItems": 1},
     "metrics": {"type": "array", "items": {"type": "string", "enum": ["exact", "semantic", "consistency", "adherence", "hallucination"]}, "minItems": 1},
     "thresholds": {
       "type": "object",

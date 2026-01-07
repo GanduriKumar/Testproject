@@ -3,7 +3,10 @@ import os
 import re
 from typing import Dict, List, Tuple
 
-from embeddings.ollama_embed import OllamaEmbeddings
+try:
+    from .embeddings.ollama_embed import OllamaEmbeddings
+except ImportError:
+    from embeddings.ollama_embed import OllamaEmbeddings
 
 
 def _normalize_text(s: str) -> str:

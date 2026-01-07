@@ -4,7 +4,7 @@ This plan follows the Interview‑First approach: clear, atomic prompts you can 
 
 Personas: QA evaluator, Product analyst
 Key workflows: upload dataset (JSON), select LLM, configure/run evaluation, view per‑turn report, export CSV, submit human feedback, compare runs
-Providers/models: Ollama (llama3.2:2b), Gemini (gemini-2.5; auto‑disable if GOOGLE_API_KEY missing)
+Providers/models: Ollama (llama3.2:latest), Gemini (gemini-2.5; auto‑disable if GOOGLE_API_KEY missing)
 Embeddings: Ollama nomic-embed-text (cosine threshold 0.80) for semantic similarity
 Datasets/goldens: JSON only, multiple acceptable variants per turn, pure text, outcome schema {decision, refund_amount?, reason_code?, next_action?, policy_flags?}
 Context policy: state object + last 4 turns
@@ -73,7 +73,7 @@ Frontend: React + Vite + TypeScript + Tailwind + React Router; Google brand pale
 - Prompt:
   """
   Implement a provider registry with adapters for:
-  - Ollama chat: model tag llama3.2:2b
+  - Ollama chat: model tag llama3.2:latest
   - Gemini chat: model gemini-2.5 (disabled if GOOGLE_API_KEY missing)
   Define a standard request/response schema capturing prompt, context turns, model metadata, timestamps, and provider response fields (latency, token stats if available, errors).
   Add unit tests using mocked HTTP calls. Execute tests and show results.
@@ -249,7 +249,7 @@ Frontend: React + Vite + TypeScript + Tailwind + React Router; Google brand pale
 - Dependency: Prompts 16, 19.
 - Prompt:
   """
-  Build a Runs page to select dataset(s), model (Ollama llama3.2:2b or Gemini gemini-2.5), thresholds, and start a run.
+  Build a Runs page to select dataset(s), model (Ollama llama3.2:latest or Gemini gemini-2.5), thresholds, and start a run.
   Show live progress with job state and per‑conversation status.
   Add UI tests and run them.
   """

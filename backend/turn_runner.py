@@ -4,10 +4,16 @@ from typing import Dict, Any, List
 import json
 from datetime import datetime, timezone
 
-from providers.registry import ProviderRegistry
-from providers.types import ProviderRequest
-from state_extractor import extract_state
-from context_builder import build_context
+try:
+    from .providers.registry import ProviderRegistry
+    from .providers.types import ProviderRequest
+    from .state_extractor import extract_state
+    from .context_builder import build_context
+except ImportError:
+    from providers.registry import ProviderRegistry
+    from providers.types import ProviderRequest
+    from state_extractor import extract_state
+    from context_builder import build_context
 
 
 class TurnRunner:

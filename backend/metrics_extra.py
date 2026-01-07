@@ -2,7 +2,10 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Any, Set
 
-from state_extractor import ORDER_PAT, AMOUNT_GENERAL_PAT, AMOUNT_REFUND_PAT
+try:
+    from .state_extractor import ORDER_PAT, AMOUNT_GENERAL_PAT, AMOUNT_REFUND_PAT
+except ImportError:
+    from state_extractor import ORDER_PAT, AMOUNT_GENERAL_PAT, AMOUNT_REFUND_PAT
 
 # Local decision detection to avoid circular deps
 _DECISION_ALLOW = re.compile(r"\b(approve(d)?|allow(ed)?|grant(ed)?)\b", re.I)

@@ -4,7 +4,10 @@ import time
 from typing import Dict, Any, List
 import httpx
 
-from providers.types import ProviderRequest, ProviderResponse
+try:
+    from .types import ProviderRequest, ProviderResponse
+except ImportError:
+    from providers.types import ProviderRequest, ProviderResponse
 
 GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 

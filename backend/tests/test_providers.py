@@ -24,7 +24,7 @@ async def test_ollama_mock(monkeypatch):
 
     monkeypatch.setattr(type(ollama), "chat", fake_chat, raising=True)
 
-    resp = await ollama.chat(ProviderRequest(model="llama3.2:2b", messages=[{"role": "user", "content": "hi"}], metadata={}))
+    resp = await ollama.chat(ProviderRequest(model="llama3.2:latest", messages=[{"role": "user", "content": "hi"}], metadata={}))
     assert resp.ok
     assert resp.content == "hello"
 

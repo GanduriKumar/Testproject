@@ -3,7 +3,10 @@ from pathlib import Path
 import json
 from typing import Any, Dict, List, Optional
 
-from schemas import SchemaValidator
+try:
+    from .schemas import SchemaValidator
+except ImportError:
+    from schemas import SchemaValidator
 
 DEFAULT_DATASETS_DIR = Path(__file__).resolve().parents[1] / "datasets"
 

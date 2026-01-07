@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import tempfile
 
-from dataset_repo import DatasetRepository
+from backend.dataset_repo import DatasetRepository
 
 
 def write_json(path: Path, data: dict):
