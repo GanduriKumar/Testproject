@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Run {{ run_id }} — Evaluation Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    .pass { color: #0F9D58; }
+    .fail { color: #DB4437; }
+    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .header { background: #f8fafc; padding: .5rem .75rem; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .5rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    .muted { color: #64748b; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #e5f0ff; color: #1e40af; font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header"><h2>Run Summary</h2></div>
+    <p><strong>Run ID:</strong> {{ run_id }} | <strong>Dataset:</strong> {{ dataset_id }} | <strong>Model:</strong> {{ model_spec }}</p>
+  </div>
+
+  {% for conv in conversations %}
+  <div class="card">
+    <div class="header">
+      <h3>Conversation {{ conv.conversation_id }} — <span class="badge">{{ 'PASS' if conv.summary.conversation_pass else 'FAIL' }}</span></h3>
+      <div class="muted">Weighted pass rate: {{ '%.2f'|format(conv.summary.weighted_pass_rate) }}</div>
+    </div>
+
+    <h4>Transcript</h4>
+    <table>
+      <thead><tr><th>Turn</th><th>Role</th><th>Text</th></tr></thead>
+      <tbody>
+      {% for t in conv.turns_transcript %}
+        <tr><td>{{ t.index }}</td><td>{{ t.role }}</td><td>{{ t.text }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <h4>Per-turn Metrics</h4>
+    <table>
+      <thead><tr><th>Turn</th><th>Exact</th><th>Semantic</th><th>Consistency</th><th>Adherence</th><th>Hallucination</th></tr></thead>
+      <tbody>
+      {% for t in conv.turns %}
+        <tr>
+          <td>{{ t.turn_index }}</td>
+          {% set ex = t.metrics.exact if t.metrics is defined and t.metrics.exact is defined else None %}
+          {% set se = t.metrics.semantic if t.metrics is defined and t.metrics.semantic is defined else None %}
+          {% set co = t.metrics.consistency if t.metrics is defined and t.metrics.consistency is defined else None %}
+          {% set ad = t.metrics.adherence if t.metrics is defined and t.metrics.adherence is defined else None %}
+          {% set ha = t.metrics.hallucination if t.metrics is defined and t.metrics.hallucination is defined else None %}
+          <td class="{{ 'pass' if ex and ex.pass else 'fail' if ex is not none else '' }}">{{ ex.pass if ex else '' }}</td>
+          <td class="{{ 'pass' if se and se.pass else 'fail' if se is not none else '' }}">{{ '%.2f'|format(se.score_max) if se and se.score_max is defined else (se.pass if se else '') }}</td>
+          <td class="{{ 'pass' if co and co.pass else 'fail' if co is not none else '' }}">{{ co.pass if co else '' }}</td>
+          <td class="{{ 'pass' if ad and ad.pass else 'fail' if ad is not none else '' }}">{{ ad.pass if ad else '' }}</td>
+          <td class="{{ 'pass' if ha and ha.pass else 'fail' if ha is not none else '' }}">{{ ha.pass if ha else '' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <h4>Final Outcome</h4>
+    <p class="{{ 'pass' if conv.summary.final_outcome.pass else 'fail' }}">{{ 'PASS' if conv.summary.final_outcome.pass else 'FAIL' }} — {{ conv.summary.final_outcome.reasons|join('; ') }}</p>
+  </div>
+  {% endfor %}
+</body>
+</html>
