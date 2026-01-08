@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/exclusions.schema.json",
+  "title": "Coverage Exclusions Config",
+  "type": "object",
+  "required": ["rules"],
+  "properties": {
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "physical_impossibility",
+              "business_irrelevance",
+              "redundancy",
+              "low_risk_cap",
+              "regulatory_block",
+              "skew_control"
+            ]
+          },
+          "applies": {
+            "type": "object",
+            "properties": {
+              "domains": { "type": "array", "items": {"type": "string"}, "uniqueItems": true },
+              "behaviors": { "type": "array", "items": {"type": "string"}, "uniqueItems": true }
+            },
+            "additionalProperties": false
+          },
+          "when": {
+            "type": "object",
+            "properties": {
+              "price_sensitivity": { "type": "array", "items": { "type": "string" } },
+              "brand_bias": { "type": "array", "items": { "type": "string" } },
+              "availability": { "type": "array", "items": { "type": "string" } },
+              "policy_boundary": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+          },
+          "exclude": {
+            "type": "object",
+            "properties": {
+              "axes": {
+                "type": "object",
+                "properties": {
+                  "price_sensitivity": { "type": "array", "items": { "type": "string" } },
+                  "brand_bias": { "type": "array", "items": { "type": "string" } },
+                  "availability": { "type": "array", "items": { "type": "string" } },
+                  "policy_boundary": { "type": "array", "items": { "type": "string" } }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "cap": { "type": "integer", "minimum": 1 },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

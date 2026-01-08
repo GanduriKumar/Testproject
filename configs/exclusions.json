@@ -1,0 +1,45 @@
+{
+  "rules": [
+    {
+      "name": "Physical impossibility - same-day pickup excludes backorder/out-of-stock",
+      "type": "physical_impossibility",
+      "applies": {"domains": ["Shipping & Delivery"], "behaviors": ["Constraint-heavy Queries"]},
+      "when": {"availability": ["backorder", "out-of-stock"]},
+      "exclude": {"axes": {"availability": ["backorder", "out-of-stock"]}},
+      "notes": "Immediate pickup implies inventory present"
+    },
+    {
+      "name": "Business irrelevance - System Awareness/Trust Safety no brand bias",
+      "type": "business_irrelevance",
+      "applies": {"domains": ["System Awareness & Failure Handling", "Trust, Safety & Fraud"]},
+      "exclude": {"axes": {"brand_bias": ["soft", "hard"]}}
+    },
+    {
+      "name": "Redundancy trim - Happy Path keep brand none in-stock within-policy",
+      "type": "redundancy",
+      "applies": {"behaviors": ["Happy Path"]},
+      "when": {"availability": ["in-stock"], "policy_boundary": ["within-policy"]},
+      "exclude": {"axes": {"brand_bias": ["soft", "hard"]}}
+    },
+    {
+      "name": "Low-risk cap - Happy Path cap in-stock within-policy",
+      "type": "low_risk_cap",
+      "applies": {"behaviors": ["Happy Path"]},
+      "when": {"availability": ["in-stock"], "policy_boundary": ["within-policy"]},
+      "cap": 12
+    },
+    {
+      "name": "Regulatory - block out-of-policy in Happy Path",
+      "type": "regulatory_block",
+      "applies": {"behaviors": ["Happy Path"]},
+      "exclude": {"axes": {"policy_boundary": ["out-of-policy"]}}
+    },
+    {
+      "name": "Skew control - limit extreme combos",
+      "type": "skew_control",
+      "applies": {},
+      "when": {"price_sensitivity": ["high"], "policy_boundary": ["out-of-policy"], "availability": ["out-of-stock"], "brand_bias": ["hard"]},
+      "cap": 1
+    }
+  ]
+}

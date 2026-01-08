@@ -17,6 +17,17 @@ except ImportError:  # fallback for test runs importing as top-level modules
     from backend.orchestrator import Orchestrator
     from backend.artifacts import RunArtifactWriter, RunArtifactReader
     from backend.reporter import Reporter
+    from backend.coverage_builder import (
+        build_per_behavior_datasets,
+        build_domain_combined_datasets,
+        build_global_combined_dataset,
+    )
+else:
+    from .coverage_builder import (
+        build_per_behavior_datasets,
+        build_domain_combined_datasets,
+        build_global_combined_dataset,
+    )
 
 APP_VERSION = "0.1.0-mvp"
 
@@ -277,6 +288,72 @@ async def save_dataset(body: SaveDatasetBody):
         gt_path.write_text(json.dumps(gt, indent=2), encoding='utf-8')
         golden_saved = True
     return {"ok": True, "dataset_id": dataset_id, "version": ds.get("version"), "dataset_saved": True, "golden_saved": golden_saved}
+
+
+# --- Coverage Generation API (Prompt 7) ---
+
+class CoverageGenerateRequest(BaseModel):
+    domains: Optional[list[str]] = None
+    behaviors: Optional[list[str]] = None
+    combined: bool = True
+    dry_run: bool = True
+    save: bool = False
+    overwrite: bool = False
+    version: str = "1.0.0"
+
+
+@app.post("/coverage/generate")
+async def coverage_generate(req: CoverageGenerateRequest):
+    # Build datasets/goldens per request
+    try:
+        if req.combined:
+            # Build per-domain combined and a global combined
+            domain_outputs = build_domain_combined_datasets(domains=req.domains, behaviors=req.behaviors, version=req.version)
+            global_ds, global_gd = build_global_combined_dataset(domains=req.domains, behaviors=req.behaviors, version=req.version)
+            outputs = domain_outputs + [(global_ds, global_gd)]
+        else:
+            outputs = build_per_behavior_datasets(domains=req.domains, behaviors=req.behaviors, version=req.version)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"generation failed: {e}")
+
+    # If dry_run, just return manifest-like summary
+    if req.dry_run and not req.save:
+        summary = []
+        for ds, gd in outputs:
+            summary.append({
+                "dataset_id": ds["dataset_id"],
+                "version": ds["version"],
+                "conversations": len(ds["conversations"]),
+                "golden_entries": len(gd["entries"]),
+            })
+        return {"ok": True, "saved": False, "outputs": summary}
+
+    # Save if requested
+    if req.save:
+        repo: DatasetRepository = app.state.orch.repo
+        root: Path = repo.root_dir
+        root.mkdir(parents=True, exist_ok=True)
+        written = []
+        for ds, gd in outputs:
+            # validate
+            ds_errors = repo.sv.validate("dataset", ds)
+            if ds_errors:
+                raise HTTPException(status_code=400, detail={"type": "dataset", "dataset_id": ds.get("dataset_id"), "errors": ds_errors})
+            gt_errors = repo.sv.validate("golden", gd)
+            if gt_errors:
+                raise HTTPException(status_code=400, detail={"type": "golden", "dataset_id": gd.get("dataset_id"), "errors": gt_errors})
+            dataset_id = ds["dataset_id"]
+            ds_path = root / f"{dataset_id}.dataset.json"
+            gt_path = root / f"{dataset_id}.golden.json"
+            if not req.overwrite and (ds_path.exists() or gt_path.exists()):
+                raise HTTPException(status_code=409, detail=f"{dataset_id} already exists; set overwrite=true")
+            ds_path.write_text(json.dumps(ds, indent=2), encoding="utf-8")
+            gt_path.write_text(json.dumps(gd, indent=2), encoding="utf-8")
+            written.append({"dataset": ds_path.name, "golden": gt_path.name})
+        return {"ok": True, "saved": True, "files": written}
+
+    # Default: not saved, not dry-run (shouldn't happen); return detailed outputs
+    return {"ok": True, "saved": False, "outputs": outputs}
 
 
 @app.get("/conversations/{conversation_id}")

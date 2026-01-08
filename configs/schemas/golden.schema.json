@@ -40,10 +40,13 @@
               "refund_amount": {"type": "number"},
               "reason_code": {"type": "string"},
               "next_action": {"type": "string"},
-              "policy_flags": {"type": "array", "items": {"type": "string"}}
+              "policy_flags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
             }
           },
-          "constraints": {"type": "object"}
+          "constraints": {
+            "type": "object",
+            "additionalProperties": true
+          }
         }
       }
     }

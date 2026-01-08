@@ -1,0 +1,99 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run pytest",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest-beta"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run pytest",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-q"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest-beta"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run pytest (Prompt 2 schemas)",
+			"type": "shell",
+			"command": "pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 2 schemas)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 3)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 4)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 5)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 6)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 7)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 7 retry)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		}
+	]
+}

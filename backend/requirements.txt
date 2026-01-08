@@ -1,10 +1,24 @@
-fastapi>=0.110
-uvicorn[standard]>=0.23
-pydantic>=2.3
-python-dotenv>=1.0
-httpx>=0.25
-pytest>=7.4
-jsonschema>=4.22
-anyio>=3.7,<5
-pytest-asyncio>=0.23
-jinja2>=3.1
+# Core API
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# HTTP client (used by providers and scripts)
+httpx==0.27.2
+
+# Config, schema, and parsing
+pydantic==2.7.4
+python-dotenv==1.0.1
+PyYAML==6.0.2
+jsonschema==4.23.0
+
+# Reporting (HTML templating)
+Jinja2==3.1.4
+
+# Metrics / similarity
+numpy==2.1.1
+
+# Optional provider SDK (Gemini)
+google-generativeai==0.7.2
+
+# Compatibility
+typing-extensions==4.12.2

@@ -1,0 +1,32 @@
+{
+  "domains": [
+    "Product Discovery & Search",
+    "Product Details & Content",
+    "Recommendations & Ranking",
+    "Pricing, Offers & Promotions",
+    "Cart Management",
+    "Checkout & Payments",
+    "Order Management",
+    "Shipping & Delivery",
+    "Returns, Refunds & Exchanges",
+    "Customer Support & Escalations",
+    "User Account & Preferences",
+    "Trust, Safety & Fraud",
+    "Merchant / Seller Operations",
+    "System Awareness & Failure Handling"
+  ],
+  "behaviors": [
+    "Happy Path",
+    "Constraint-heavy Queries",
+    "Ambiguous Queries",
+    "Multi-turn Conversations",
+    "User Corrections",
+    "Adversarial/Trap Queries"
+  ],
+  "axes": {
+    "price_sensitivity": ["low","medium","high"],
+    "brand_bias": ["none","soft","hard"],
+    "availability": ["in-stock","low-stock","backorder","out-of-stock"],
+    "policy_boundary": ["within-policy","near-limit","out-of-policy"]
+  }
+}

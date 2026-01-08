@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/coverage_taxonomy.schema.json",
+  "title": "Coverage Taxonomy",
+  "type": "object",
+  "required": ["domains", "behaviors", "axes"],
+  "properties": {
+    "domains": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "behaviors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "axes": {
+      "type": "object",
+      "required": ["price_sensitivity", "brand_bias", "availability", "policy_boundary"],
+      "properties": {
+        "price_sensitivity": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "brand_bias": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "availability": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "policy_boundary": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}
