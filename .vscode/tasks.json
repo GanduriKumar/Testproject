@@ -126,6 +126,22 @@
 			"problemMatcher": [
 				"$pytest-python"
 			]
+		},
+		{
+			"label": "Run full pytest after Prompt 9 backend additions",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 10)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
 		}
 	]
 }

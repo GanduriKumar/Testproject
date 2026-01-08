@@ -22,12 +22,14 @@ except ImportError:  # fallback for test runs importing as top-level modules
         build_domain_combined_datasets,
         build_global_combined_dataset,
     )
+    from backend.coverage_manifest import CoverageManifestor
 else:
     from .coverage_builder import (
         build_per_behavior_datasets,
         build_domain_combined_datasets,
         build_global_combined_dataset,
     )
+    from .coverage_manifest import CoverageManifestor
 
 APP_VERSION = "0.1.0-mvp"
 
@@ -354,6 +356,24 @@ async def coverage_generate(req: CoverageGenerateRequest):
 
     # Default: not saved, not dry-run (shouldn't happen); return detailed outputs
     return {"ok": True, "saved": False, "outputs": outputs}
+
+
+@app.get("/coverage/taxonomy")
+async def coverage_taxonomy():
+    cm = CoverageManifestor()
+    return {"domains": cm.taxonomy.get("domains", []), "behaviors": cm.taxonomy.get("behaviors", [])}
+
+
+@app.get("/coverage/manifest")
+async def coverage_manifest(domains: Optional[list[str]] = None, behaviors: Optional[list[str]] = None, seed: int = 42):
+    cm = CoverageManifestor()
+    manifest = cm.build(seed=seed)
+    pairs = manifest.get("pairs", [])
+    if domains:
+        pairs = [p for p in pairs if p.get("domain") in set(domains)]
+    if behaviors:
+        pairs = [p for p in pairs if p.get("behavior") in set(behaviors)]
+    return {"seed": seed, "axes_order": manifest.get("axes_order"), "pairs": pairs}
 
 
 @app.get("/conversations/{conversation_id}")

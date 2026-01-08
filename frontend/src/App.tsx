@@ -7,6 +7,7 @@ import SettingsPage from './pages/Settings'
 import GoldenGeneratorPage from './pages/GoldenGenerator'
 import MetricsPage from './pages/Metrics'
 import GoldenEditorPage from './pages/GoldenEditor'
+import CoverageGeneratorPage from './pages/CoverageGenerator'
 import Card from './components/Card'
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ function Layout({ children }: { children: React.ReactNode }) {
                 { to: '/golden-editor', label: 'Golden Editor', color: 'success' },
                 { to: '/metrics', label: 'Metrics', color: 'primary' },
                 { to: '/golden-generator', label: 'Golden Generator', color: 'primary' },
+                { to: '/coverage', label: 'Coverage Generator', color: 'warning' },
               ]
               const cls = (color: Color, _isActive: boolean) => {
                 const base = 'rounded-md px-2 py-1 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 transition'
@@ -98,6 +100,7 @@ export default function App() {
           <Route path="/golden-editor" element={<GoldenEditorPage />} />
           <Route path="/metrics" element={<MetricsPage />} />
           <Route path="/golden-generator" element={<GoldenGeneratorPage />} />
+          <Route path="/coverage" element={<CoverageGeneratorPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
