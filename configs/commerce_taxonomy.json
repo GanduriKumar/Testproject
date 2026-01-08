@@ -1,0 +1,30 @@
+{
+  "version": "2026.01",
+  "domain_type": "commerce",
+  "domains": [
+    "Orders & Returns",
+    "Payments & Refunds/Chargebacks",
+    "Promotions & Pricing",
+    "Inventory & Availability",
+    "Shipping & Logistics",
+    "Account & Security",
+    "Restricted Items & Compliance",
+    "Marketplace Policy/Disputes"
+  ],
+  "behaviors": [
+    "Refund/Exchange/Cancellation",
+    "Price match/Discount/Coupon stacking",
+    "Post-purchase modifications",
+    "Availability workarounds",
+    "Restricted items or cross-border compliance",
+    "PII access/deletion",
+    "Chargeback disputes",
+    "Adversarial/trap attempts"
+  ],
+  "axes": {
+    "price_sensitivity": ["low", "medium", "high"],
+    "brand_bias": ["none", "soft", "hard"],
+    "availability": ["in_stock", "limited_stock", "backorder", "sold_out"],
+    "policy_boundary": ["within_policy", "near_edge_allowed", "out_of_policy"]
+  }
+}

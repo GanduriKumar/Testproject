@@ -1,0 +1,60 @@
+{
+  "version": "2026.01",
+  "strategy": {
+    "name": "risk_weighted_M",
+    "allocation": {
+      "per_behavior_total": 100,
+      "high": 50,
+      "medium": 35,
+      "low": 15,
+      "min_per_domain": 3,
+      "pair_coverage_target": 0.90
+    },
+    "rng_seed": 42
+  },
+  "risk": {
+    "domains": {
+      "Orders & Returns": "high",
+      "Payments & Refunds/Chargebacks": "high",
+      "Promotions & Pricing": "high",
+      "Inventory & Availability": "high",
+      "Shipping & Logistics": "medium",
+      "Account & Security": "high",
+      "Restricted Items & Compliance": "high",
+      "Marketplace Policy/Disputes": "high"
+    },
+    "behaviors": {
+      "Refund/Exchange/Cancellation": "high",
+      "Price match/Discount/Coupon stacking": "high",
+      "Post-purchase modifications": "medium",
+      "Availability workarounds": "high",
+      "Restricted items or cross-border compliance": "high",
+      "PII access/deletion": "high",
+      "Chargeback disputes": "high",
+      "Adversarial/trap attempts": "high"
+    },
+    "axes": {
+      "price_sensitivity": {
+        "high": "high",
+        "medium": "medium",
+        "low": "low"
+      },
+      "brand_bias": {
+        "hard": "high",
+        "soft": "medium",
+        "none": "low"
+      },
+      "availability": {
+        "sold_out": "high",
+        "limited_stock": "high",
+        "backorder": "medium",
+        "in_stock": "low"
+      },
+      "policy_boundary": {
+        "near_edge_allowed": "high",
+        "within_policy": "low",
+        "out_of_policy": "excluded"
+      }
+    }
+  }
+}
