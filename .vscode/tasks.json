@@ -94,6 +94,38 @@
 			"problemMatcher": [
 				"$pytest-python"
 			]
+		},
+		{
+			"label": "Run pytest (Prompt 8)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 8 retry)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 8 retry 2)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q backend/tests/test_prompt8_cli.py -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run full pytest suite",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
 		}
 	]
 }
