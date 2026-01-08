@@ -4,6 +4,34 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 import json
 import csv
+import re
+import hashlib
+
+
+def safe_component(name: str, *, max_len: int = 120) -> str:
+    """Return a filesystem-safe folder/file component.
+    - Replace disallowed characters with '_'
+    - Collapse consecutive underscores
+    - Trim to max_len and append short hash for uniqueness
+    """
+    # Allow only alnum, dash, underscore, dot
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("._")
+    if not cleaned:
+        cleaned = "id"
+    h = hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
+    # Ensure length and uniqueness suffix
+    base = cleaned[: max(1, max_len - 9)]  # leave room for '-' + 8
+    safe = f"{base}-{h}"
+    return safe
+
+
+def conversation_dirname(conversation_id: str) -> str:
+    """Produce a very short, stable folder name for a conversation ID.
+    This avoids Windows MAX_PATH issues by not embedding long IDs in paths.
+    """
+    h = hashlib.sha1(conversation_id.encode("utf-8")).hexdigest()[:12]
+    return f"c-{h}"
 
 
 @dataclass
@@ -19,6 +47,10 @@ class RunFolderLayout:
         p = self.run_dir(run_id) / "conversations"
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    def conversation_subdir(self, run_id: str, conversation_id: str) -> Path:
+        # Use short hashed folder names to keep paths well under MAX_PATH
+        return self.conversations_dir(run_id) / conversation_dirname(conversation_id)
 
     def run_config_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "run_config.json"

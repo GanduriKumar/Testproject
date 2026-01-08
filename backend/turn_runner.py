@@ -26,7 +26,10 @@ class TurnRunner:
         return datetime.now(timezone.utc).isoformat()
 
     def _artifact_path(self, run_id: str, conversation_id: str, turn_index: int) -> Path:
-        base = self.run_root / run_id / "conversations" / conversation_id
+        # Use the same safe subdir naming as artifacts layout
+        from .artifacts import RunFolderLayout, safe_component
+        layout = RunFolderLayout(self.run_root)
+        base = layout.conversation_subdir(run_id, conversation_id)
         base.mkdir(parents=True, exist_ok=True)
         return base / f"turn_{turn_index:03d}.json"
 

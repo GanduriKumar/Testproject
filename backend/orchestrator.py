@@ -141,7 +141,9 @@ class Orchestrator:
 
             for conv in ds.get("conversations", []):
                 cid = conv.get("conversation_id")
-                conv_dir = self.runs_root / jr.run_id / "conversations" / cid
+                # Match the safe path used by TurnRunner
+                from .artifacts import RunFolderLayout
+                conv_dir = RunFolderLayout(self.runs_root).conversation_subdir(jr.run_id, cid)
                 turn_files = sorted(conv_dir.glob("turn_*.json"))
                 per_turn: List[Dict[str, Any]] = []
                 # build golden maps
