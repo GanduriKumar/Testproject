@@ -23,6 +23,8 @@ export default function CoverageGeneratorPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string| null>(null)
   const [err, setErr] = useState<string| null>(null)
+  const [regenBusy, setRegenBusy] = useState(false)
+  const [regenMsg, setRegenMsg] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -74,6 +76,46 @@ export default function CoverageGeneratorPage() {
     }
   }
 
+  // --- Regenerate (optimized) for an existing combined dataset id ---
+  const [existingDatasetId, setExistingDatasetId] = useState('')
+  const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+  const parseCoverageCombined = (id: string) => {
+    if (!id || !id.startsWith('coverage-')) return null
+    const parts = id.split('-')
+    if (parts.length < 4) return null
+    const last = parts[parts.length - 1]
+    const penultimate = parts[parts.length - 2]
+    if (penultimate !== 'combined') return null
+    const version = last
+    const domainSlug = parts.slice(1, parts.length - 2).join('-')
+    if (!domainSlug) return null
+    return { domainSlug, version }
+  }
+  const regenerateOptimized = async () => {
+    setRegenMsg(null)
+    if (!existingDatasetId) { setRegenMsg('Enter an existing combined dataset id.'); return }
+    const parsed = parseCoverageCombined(existingDatasetId)
+    if (!parsed) { setRegenMsg('Only coverage-<domain>-combined-<version> dataset ids are supported.'); return }
+    setRegenBusy(true)
+    try {
+      const t = await fetch('/coverage/taxonomy')
+      if (!t.ok) throw new Error(`Taxonomy HTTP ${t.status}`)
+      const tj = await t.json()
+      const domains: string[] = Array.isArray(tj.domains) ? tj.domains : []
+      const match = domains.find(d => slugify(d) === parsed.domainSlug)
+      if (!match) throw new Error('Domain not found in taxonomy for dataset id.')
+      const body = { combined: true, dry_run: false, save: true, overwrite: true, domains: [match], version: parsed.version }
+      const r = await fetch('/coverage/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      const js = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(js?.detail || `Generate HTTP ${r.status}`)
+      setRegenMsg('Regenerated with optimized coverage (pairwise). Files overwritten.')
+    } catch (e:any) {
+      setRegenMsg(e.message || 'Failed to regenerate')
+    } finally {
+      setRegenBusy(false)
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <Card title="Coverage Generator">
@@ -104,6 +146,15 @@ export default function CoverageGeneratorPage() {
             </div>
             {msg && <div className="text-success">{msg}</div>}
             {err && <div className="text-danger">{err}</div>}
+            <div className="mt-4 border-t pt-3">
+              <div className="font-medium mb-1">Regenerate (optimized)</div>
+              <div className="flex items-center gap-2">
+                <input className="border rounded px-2 py-1 grow" placeholder="coverage-<domain>-combined-<version>" value={existingDatasetId} onChange={e => setExistingDatasetId(e.target.value)} />
+                <Button onClick={regenerateOptimized} disabled={regenBusy}>{regenBusy ? 'Regenerating…' : 'Run'}</Button>
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Overwrites the specified combined dataset using current optimization settings (configs/coverage.json)</div>
+              {regenMsg && <div className="text-xs mt-1">{regenMsg}</div>}
+            </div>
           </div>
         </div>
       </Card>
