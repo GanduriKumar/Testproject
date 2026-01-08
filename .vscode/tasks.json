@@ -142,6 +142,33 @@
 			"problemMatcher": [
 				"$pytest-python"
 			]
+		},
+		{
+			"label": "Run pytest (Prompt 11)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "Run pytest (Prompt 12)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe -m pytest -q",
+			"problemMatcher": [
+				"$pytest-python"
+			]
+		},
+		{
+			"label": "pytest - prompt13",
+			"type": "shell",
+			"command": "pytest -q",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest-stylish"
+			],
+			"group": "build"
 		}
 	]
 }

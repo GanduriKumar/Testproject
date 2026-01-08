@@ -1,4 +1,5 @@
 {
+  "version": "2026.01",
   "rules": [
     {
       "name": "Physical impossibility - same-day pickup excludes backorder/out-of-stock",

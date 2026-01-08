@@ -234,6 +234,7 @@ Example save payload (what the UI sends):
 - runs/ — Generated run artifacts (results.json, results.csv, report.html, per‑turn JSON)
 - scripts/ — Helper scripts (dev.ps1, smoke.ps1)
 - docs/ — Additional documentation
+  - docs/GOVERNANCE.md — Coverage governance & versioning guide (Prompt 13)
 
 ---
 
@@ -258,6 +259,11 @@ Common endpoints:
 - GET /settings — read provider settings
 - POST /settings — update .env (dev only)
 - GET/POST /metrics-config — read/write metrics configuration
+- GET /coverage/taxonomy — list domains and behaviors
+- GET /coverage/manifest — preview counts per domain×behavior pair (query params: domains, behaviors)
+- POST /coverage/generate — generate datasets/goldens (combined or split) with options to save
+- GET /coverage/report.csv?type=summary|heatmap — download CSV reports
+- POST /coverage/per-turn.csv — generate a per-turn CSV for a dataset/golden payload
 
 ---
 
@@ -269,7 +275,7 @@ Common endpoints:
 
 - Frontend cannot reach backend
   - Ensure backend is running on http://localhost:8000.
-  - Vite dev server proxies API calls automatically.
+  - Vite dev server proxies API calls automatically, including /coverage endpoints.
   - If proxy fails, check `frontend/vite.config.ts` for the route and restart the dev server.
 
 - Ollama errors or model not found
@@ -289,6 +295,7 @@ Logs and artifacts:
 - Backend logs in the terminal where uvicorn runs.
 - Per‑turn artifacts under `runs/<run_id>/conversations/<conversation_id>/turn_XXX.json`.
 - Aggregated results in `runs/<run_id>/results.json` and `.csv`.
+ - Coverage CSVs via the Coverage Generator page: summary, heatmap, and per-turn exports.
 
 ---
 
@@ -334,7 +341,7 @@ Run results (snippet):
 
 ## Contributing
 
-- See CONTRIBUTING.md for coding standards and tests.
+- See CONTRIBUTING.md for coding standards and tests. For governance/versioning of coverage rules, see `docs/GOVERNANCE.md`.
 - License: GPLv3 (see LICENSE).
 
 ---

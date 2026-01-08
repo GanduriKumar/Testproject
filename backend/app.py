@@ -30,6 +30,7 @@ else:
         build_global_combined_dataset,
     )
     from .coverage_manifest import CoverageManifestor
+    from .coverage_reports import coverage_summary_csv, coverage_heatmap_csv, per_turn_csv
 
 APP_VERSION = "0.1.0-mvp"
 
@@ -365,15 +366,47 @@ async def coverage_taxonomy():
 
 
 @app.get("/coverage/manifest")
-async def coverage_manifest(domains: Optional[list[str]] = None, behaviors: Optional[list[str]] = None, seed: int = 42):
+async def coverage_manifest(domains: Optional[str] = None, behaviors: Optional[str] = None, seed: int = 42):
     cm = CoverageManifestor()
     manifest = cm.build(seed=seed)
     pairs = manifest.get("pairs", [])
-    if domains:
-        pairs = [p for p in pairs if p.get("domain") in set(domains)]
-    if behaviors:
-        pairs = [p for p in pairs if p.get("behavior") in set(behaviors)]
+    doms = set(domains.split(",")) if isinstance(domains, str) and domains else None
+    behs = set(behaviors.split(",")) if isinstance(behaviors, str) and behaviors else None
+    if doms:
+        pairs = [p for p in pairs if p.get("domain") in doms]
+    if behs:
+        pairs = [p for p in pairs if p.get("behavior") in behs]
     return {"seed": seed, "axes_order": manifest.get("axes_order"), "pairs": pairs}
+
+
+@app.get("/coverage/report.csv")
+async def coverage_report_csv(type: str = "summary", domains: Optional[str] = None, behaviors: Optional[str] = None):
+    doms = domains.split(",") if domains else None
+    behs = behaviors.split(",") if behaviors else None
+    if type == "summary":
+        content = coverage_summary_csv(doms, behs)
+    elif type == "heatmap":
+        content = coverage_heatmap_csv(doms, behs)
+    else:
+        raise HTTPException(status_code=400, detail="unknown report type")
+    # Return as CSV response
+    from fastapi.responses import Response
+    return Response(content, media_type="text/csv")
+
+
+class PerTurnReportBody(BaseModel):
+    dataset: Dict[str, Any]
+    golden: Dict[str, Any]
+
+
+@app.post("/coverage/per-turn.csv")
+async def coverage_per_turn_csv(body: PerTurnReportBody):
+    try:
+        content = per_turn_csv(body.dataset, body.golden)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    from fastapi.responses import Response
+    return Response(content, media_type="text/csv")
 
 
 @app.get("/conversations/{conversation_id}")

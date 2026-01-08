@@ -186,3 +186,5 @@ NavBar and unified navigation: Provide a navigation bar (NavBar) in the frontend
 Evaluation run interface enhancements: Enhance the evaluation run interface so that users can not only select existing datasets but also choose from newly uploaded datasets or import a dataset on the fly. The interface should offer options to pick models, metric bundles, truncation policies, and concurrency settings before launching a run.
 
 Industry‑specific templates and documentation: Provide a collection of industry‑specific templates and documentation to guide users in creating conversation datasets and golden references for new domains, ensuring the evaluation framework can be adopted across various verticals.
+
+Governance & documentation (Prompt 13): Add governance/versioning for coverage taxonomy and exclusions, implement linting of taxonomy and rules (dup/overlap/conflicts), document change process in docs/GOVERNANCE.md, and update UserGuide.md with coverage endpoints and reporting features.

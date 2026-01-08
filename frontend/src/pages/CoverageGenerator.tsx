@@ -95,6 +95,12 @@ export default function CoverageGeneratorPage() {
             <div className="flex gap-2 mt-1">
               <Button variant="primary" onClick={loadManifest} disabled={busy}>Preview coverage</Button>
               <Button variant="success" onClick={triggerGenerate} disabled={busy}>Generate</Button>
+              <a className="rounded-md px-3 py-2 bg-primary text-white text-sm" href={`/coverage/report.csv?type=summary${selectedDomains.length?`&domains=${encodeURIComponent(selectedDomains.join(','))}`:''}${selectedBehaviors.length?`&behaviors=${encodeURIComponent(selectedBehaviors.join(','))}`:''}`} download>
+                Download Summary CSV
+              </a>
+              <a className="rounded-md px-3 py-2 bg-success text-white text-sm" href={`/coverage/report.csv?type=heatmap${selectedDomains.length?`&domains=${encodeURIComponent(selectedDomains.join(','))}`:''}${selectedBehaviors.length?`&behaviors=${encodeURIComponent(selectedBehaviors.join(','))}`:''}`} download>
+                Download Heatmap CSV
+              </a>
             </div>
             {msg && <div className="text-success">{msg}</div>}
             {err && <div className="text-danger">{err}</div>}
@@ -113,6 +119,9 @@ export default function CoverageGeneratorPage() {
                   <span className="text-gray-500">/ {p.behavior}</span>
                   <div className="grow" />
                   <span className="text-xs">Raw: {p.raw_total} | Final: {p.final_total}</span>
+                  <a className="ml-2 text-xs underline text-primary" href={`/coverage/report.csv?type=summary&domains=${encodeURIComponent(p.domain)}&behaviors=${encodeURIComponent(p.behavior)}`} download>
+                    CSV
+                  </a>
                 </div>
                 <div className="mt-2 text-xs text-gray-700">
                   {p.breakdown.map(b => (

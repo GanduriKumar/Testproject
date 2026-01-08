@@ -41,6 +41,9 @@ export default function DatasetsPage() {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [overwrite, setOverwrite] = useState(false)
+  const [reportMsg, setReportMsg] = useState<string | null>(null)
+  const [reportErr, setReportErr] = useState<string | null>(null)
+  const [reportBusyId, setReportBusyId] = useState<string | null>(null)
 
   const handleUpload = async () => {
     setUploadMsg(null)
@@ -65,6 +68,40 @@ export default function DatasetsPage() {
       setUploadMsg(e.message || 'Upload failed')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const downloadPerTurn = async (datasetId: string) => {
+    setReportMsg(null); setReportErr(null); setReportBusyId(datasetId)
+    try {
+      // fetch dataset and golden
+      const [dsRes, gdRes] = await Promise.all([
+        fetch(`/datasets/${encodeURIComponent(datasetId)}`),
+        fetch(`/goldens/${encodeURIComponent(datasetId)}`)
+      ])
+      if (!dsRes.ok) throw new Error(`Dataset fetch failed (${dsRes.status})`)
+      if (!gdRes.ok) throw new Error(`Golden fetch failed (${gdRes.status})`)
+      const dataset = await dsRes.json()
+      const golden = await gdRes.json()
+      const r = await fetch('/coverage/per-turn.csv', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dataset, golden })
+      })
+      const text = await r.text()
+      if (!r.ok) throw new Error(text || 'Failed to generate report')
+      const blob = new Blob([text], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${datasetId}-per-turn.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setReportMsg(`Downloaded ${datasetId}-per-turn.csv`)
+    } catch (e:any) {
+      setReportErr(e.message || 'Failed to generate per-turn report')
+    } finally {
+      setReportBusyId(null)
     }
   }
 
@@ -109,6 +146,7 @@ export default function DatasetsPage() {
                 <th className="py-2 pr-4">Conversations</th>
                 <th className="py-2 pr-4">Golden</th>
                 <th className="py-2 pr-4">Valid</th>
+                <th className="py-2 pr-4">Reports</th>
               </tr>
             </thead>
             <tbody>
@@ -121,6 +159,17 @@ export default function DatasetsPage() {
                   <td className="py-2 pr-4">{row.conversations ?? '-'}</td>
                   <td className="py-2 pr-4">{row.has_golden ? <Badge variant="success">Yes</Badge> : <Badge variant="warning">No</Badge>}</td>
                   <td className="py-2 pr-4">{row.valid ? <Badge variant="success">Valid</Badge> : <Badge variant="danger">Invalid</Badge>}</td>
+                  <td className="py-2 pr-4">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        disabled={!row.has_golden || reportBusyId === row.dataset_id}
+                        onClick={() => downloadPerTurn(row.dataset_id)}
+                      >
+                        {reportBusyId === row.dataset_id ? 'Generating…' : 'Per-turn CSV'}
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {list.length === 0 && !loading && (
@@ -128,6 +177,10 @@ export default function DatasetsPage() {
               )}
             </tbody>
           </table>
+          <div className="mt-2 text-sm">
+            {reportMsg && <span className="text-success">{reportMsg}</span>}
+            {reportErr && <span className="text-danger">{reportErr}</span>}
+          </div>
         </div>
       </Card>
     </div>
