@@ -17,7 +17,8 @@
           {"type": "array", "items": {"type": "string", "enum": ["easy","medium","hard"]}, "minItems": 1, "uniqueItems": true}
         ]},
         "tags": {"type": "array", "items": {"type": "string"}},
-        "task_type": {"type": "string"}
+        "task_type": {"type": "string"},
+        "short_description": {"type": "string", "maxLength": 280, "description": "Human-readable summary of the dataset/domain."}
       }
     },
     "conversations": {
@@ -28,6 +29,10 @@
         "required": ["conversation_id", "turns"],
         "properties": {
           "conversation_id": {"type": "string"},
+          "title": {"type": "string", "maxLength": 120, "description": "Short, readable conversation title."},
+          "metadata": {"type": "object", "properties": {
+            "short_description": {"type": "string", "maxLength": 280, "description": "Short scenario description."}
+          }, "additionalProperties": true},
           "turns": {
             "type": "array",
             "minItems": 2,

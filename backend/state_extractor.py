@@ -24,9 +24,12 @@ COMMON_INTENTS = {
 
 DECISION_MAP = {
     r"\b(approve(d)?|allowed?|grant(ed)?)\b": "ALLOW",
-    r"\b(deny|denied|cannot|can't|not able)\b": "DENY",
+    r"\b(deny|denied|cannot|can't|not able|unable|refuse|won't)\b": "DENY",
     r"\b(partial|partly)\b": "PARTIAL",
 }
+REFUND_POSITIVE = re.compile(r"\b(process|issue|initiate|provide|send|grant|approve)(ing)?\s+(a\s+)?refund\b", re.I)
+REFUND_NEGATIVE = re.compile(r"\b(cannot|can't|unable|won't|refuse|deny)[^\.\n]{0,40}\brefund\b", re.I)
+REFUND_PARTIAL = re.compile(r"\b(partial|partly)[^\.\n]{0,20}\brefund\b", re.I)
 
 POLICY_FLAGS_PATTERNS = {
     "after_shipment": [r"after (it'?s )?shipped", r"shipped already"],
@@ -112,6 +115,13 @@ def extract_state(domain: str, turns: List[Dict[str, str]], prev_state: Optional
         # decisions/actions from assistant turns
         if role == "assistant":
             dec = _detect_decision(text)
+            # Heuristics around refund phrasing
+            if REFUND_NEGATIVE.search(text or ""):
+                dec = dec or "DENY"
+            elif REFUND_PARTIAL.search(text or ""):
+                dec = dec or "PARTIAL"
+            elif REFUND_POSITIVE.search(text or ""):
+                dec = dec or "ALLOW"
             if dec:
                 state["decision"] = dec
             if re.search(r"issue (a )?refund|process(ing)? refund", text, re.I):

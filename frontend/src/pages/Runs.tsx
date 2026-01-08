@@ -110,21 +110,35 @@ export default function RunsPage() {
     const load = async () => {
       setLoading(true); setError(null)
       try {
-        const [dR, vR, rR] = await Promise.all([
+        const [dR, vR, sR, rR] = await Promise.all([
           fetch('/datasets'),
           fetch('/version'),
+          fetch('/settings'),
           fetch('/runs')
         ])
         if (!dR.ok) throw new Error(`Datasets HTTP ${dR.status}`)
         if (!vR.ok) throw new Error(`Version HTTP ${vR.status}`)
+        if (!sR.ok) throw new Error(`Settings HTTP ${sR.status}`)
         if (!rR.ok) throw new Error(`Runs HTTP ${rR.status}`)
         const d = await dR.json()
         const v = await vR.json() as VersionInfo
+        const s = await sR.json() as any
         const runs = await rR.json() as RunListItem[]
         setDatasets(d)
         setVer(v)
         setRecentRuns(runs)
         setSemanticThreshold(Number(v.semantic_threshold) || 0.8)
+        // Seed metric toggles from persisted settings.metrics if available
+        const cfg = (s && s.metrics && Array.isArray(s.metrics.metrics)) ? s.metrics.metrics : null
+        if (cfg) {
+          const byName: Record<string, boolean> = {}
+          for (const m of cfg) byName[m.name] = !!m.enabled
+          setMetricExact(byName['exact_match'] ?? true)
+          setMetricSemantic(byName['semantic_similarity'] ?? true)
+          setMetricConsistency(byName['consistency'] ?? true)
+          setMetricAdherence(byName['adherence'] ?? true)
+          setMetricHallucination(byName['hallucination'] ?? true)
+        }
         // default dataset
         if (d && d.length) setDatasetId(d[0].dataset_id)
         // If a running/paused job exists, resume polling it

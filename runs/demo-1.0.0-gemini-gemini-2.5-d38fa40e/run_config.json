@@ -1,7 +1,0 @@
-{
-  "dataset_id": "demo",
-  "model_spec": "gemini:gemini-2.5",
-  "metrics": [],
-  "thresholds": {},
-  "context": {}
-}

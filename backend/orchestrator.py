@@ -192,11 +192,63 @@ class Orchestrator:
             ds = self.repo.get_dataset(jr.config["dataset_id"])
             provider, model = self.parse_model_spec(jr.config["model_spec"])  # e.g., 'ollama', 'llama3.2:2b'
             domain = ds.get("metadata", {}).get("domain", "commerce")
-            metrics_wanted: List[str] = list(jr.config.get("metrics") or ["exact"])  # default to exact only
+            # Normalize metric selection from run config
+            wanted_raw: List[str] = list(jr.config.get("metrics") or ["exact"])  # default to exact only
+            map_names = {
+                "exact_match": "exact",
+                "exact": "exact",
+                "semantic_similarity": "semantic",
+                "semantic": "semantic",
+                "consistency": "consistency",
+                "adherence": "adherence",
+                "hallucination": "hallucination",
+            }
+            metrics_wanted: List[str] = []
+            for name in wanted_raw:
+                norm = map_names.get(str(name))
+                if norm and norm not in metrics_wanted:
+                    metrics_wanted.append(norm)
 
             # Ensure run folder exists even if downstream is mocked
             run_folder = self.runs_root / jr.run_id
             run_folder.mkdir(parents=True, exist_ok=True)
+
+            # Helpers for identity enrichment
+            def _slugify(text: str) -> str:
+                import re
+                t = (text or "").lower()
+                t = re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+                return t[:80]
+
+            def _conv_identity(conv_obj: Dict[str, Any]) -> Dict[str, Any]:
+                meta_ds = ds.get("metadata", {}) or {}
+                meta = (conv_obj.get("metadata") or {}) if isinstance(conv_obj.get("metadata"), dict) else {}
+                # fields
+                d = meta.get("domain") or meta_ds.get("domain")
+                b = meta.get("behavior") or meta_ds.get("behavior")
+                s = meta.get("scenario") or meta.get("case")
+                persona = meta.get("persona")
+                locale = meta.get("locale")
+                channel = meta.get("channel")
+                complexity = meta.get("complexity") or meta_ds.get("difficulty")
+                case_type = meta.get("case_type") or meta.get("type")
+                title = conv_obj.get("title") or (
+                    (f"{b}: {s}" if b and s else (b or s)) if (b or s) else None
+                ) or conv_obj.get("conversation_id")
+                parts = [p for p in [d, b, s, persona, locale] if p]
+                slug = _slugify("-".join(parts)) if parts else _slugify(conv_obj.get("conversation_id", "conv"))
+                return {
+                    "conversation_slug": slug,
+                    "conversation_title": title,
+                    "domain": d,
+                    "behavior": b,
+                    "scenario": s,
+                    "persona": persona,
+                    "locale": locale,
+                    "channel": channel,
+                    "complexity": complexity,
+                    "case_type": case_type,
+                }
 
             for conv in ds.get("conversations", []):
                 if jr._cancel:
@@ -361,6 +413,11 @@ class Orchestrator:
                 "model_spec": jr.config.get("model_spec"),
                 "conversations": [],
             }
+            # include dataset/domain short description if present
+            try:
+                results["domain_description"] = (ds.get("metadata", {}) or {}).get("short_description")
+            except Exception:
+                pass
 
             for conv in ds.get("conversations", []):
                 cid = conv.get("conversation_id")
@@ -369,6 +426,7 @@ class Orchestrator:
                 conv_dir = RunFolderLayout(self.runs_root).conversation_subdir(jr.run_id, cid)
                 turn_files = sorted(conv_dir.glob("turn_*.json"))
                 per_turn: List[Dict[str, Any]] = []
+                identity = _conv_identity(conv)
                 # build golden maps
                 golden_entry = None
                 golden_outcome: Dict[str, Any] = {}
@@ -392,19 +450,33 @@ class Orchestrator:
                     out_text = ((rec.get("response", {}) or {}).get("content")) or ""
                     uidx = int(rec.get("turn_index", 0))
                     assistant_idx = uidx + 1  # map to assistant turn in golden
+                    # derive user prompt snippet from dataset conversation
+                    user_text = ""
+                    try:
+                        tlist = conv.get("turns", []) or []
+                        if 0 <= uidx < len(tlist):
+                            user_text = str(tlist[uidx].get("text") or "")
+                    except Exception:
+                        user_text = ""
+                    def _snippet(t: str, n: int = 160) -> str:
+                        t = (t or "").strip().replace("\n", " ")
+                        return t if len(t) <= n else (t[: n - 1] + "…")
                     mets: Dict[str, Any] = {}
-                    # exact
+                    # exact (if selected and golden exists)
                     exp_variants = []
                     if golden_entry and assistant_idx in golden_entry:
                         exp_variants = golden_entry[assistant_idx]
-                        try:
-                            mets["exact"] = exact_match(out_text, exp_variants)
-                        except Exception as e:
-                            mets["exact"] = {"metric": "exact", "pass": False, "error": str(e)}
+                        if "exact" in metrics_wanted:
+                            try:
+                                mets["exact"] = exact_match(out_text, exp_variants)
+                            except Exception as e:
+                                mets["exact"] = {"metric": "exact", "pass": False, "error": str(e)}
                         if "semantic" in metrics_wanted:
                             try:
                                 # semantic may fail if embeddings not available
                                 thr = (jr.config.get("thresholds", {}) or {}).get("semantic")
+                                if thr is None:
+                                    thr = (jr.config.get("thresholds", {}) or {}).get("semantic_threshold")
                                 mets["semantic"] = await semantic_similarity(out_text, exp_variants, threshold=thr)
                             except Exception as e:
                                 mets["semantic"] = {"metric": "semantic", "pass": False, "error": str(e)}
@@ -423,15 +495,52 @@ class Orchestrator:
                     except Exception as e:
                         mets["hallucination"] = {"metric": "hallucination", "pass": False, "error": str(e)}
 
-                    per_turn.append({"turn_index": uidx, "metrics": mets})
+                    # compute turn_pass if any metric present
+                    try:
+                        pass_vals = [bool(v.get("pass")) for v in mets.values() if isinstance(v, dict) and "pass" in v]
+                        turn_pass = all(pass_vals) if pass_vals else True
+                    except Exception:
+                        turn_pass = False
+                    per_turn.append({
+                        "turn_index": uidx,
+                        "metrics": mets,
+                        "turn_pass": turn_pass,
+                        "user_prompt_snippet": _snippet(user_text),
+                        "assistant_output_snippet": _snippet(out_text, 200),
+                    })
                     last_state = rec.get("state") or last_state
 
                 # conversation summary
                 summary = aggregate_conversation(per_turn, last_state or {}, golden_outcome or {})
+                # augment summary with counts and failed metrics
+                try:
+                    total_user_turns = len(per_turn)
+                    failed_turns_count = sum(1 for t in per_turn if not t.get("turn_pass", True))
+                    failed_metrics = sorted({
+                        name for t in per_turn for name, m in (t.get("metrics") or {}).items()
+                        if isinstance(m, dict) and m.get("pass") is False
+                    })
+                    summary = {
+                        **(summary or {}),
+                        "total_user_turns": total_user_turns,
+                        "failed_turns_count": failed_turns_count,
+                        "failed_metrics": failed_metrics,
+                    }
+                except Exception:
+                    pass
+                # add conversation description from metadata if present
+                conv_description = None
+                try:
+                    conv_description = (conv.get("metadata") or {}).get("short_description")
+                except Exception:
+                    conv_description = None
                 results["conversations"].append({
                     "conversation_id": cid,
+                    **identity,
+                    "conversation_description": conv_description,
                     "turns": per_turn,
                     "summary": summary,
+                    "trace_dir": str(conv_dir),
                 })
 
             # persist results

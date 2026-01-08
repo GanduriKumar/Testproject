@@ -115,6 +115,9 @@ export default function ReportsPage() {
               <div><span className="text-gray-500">Model:</span> <span className="text-success font-medium">{results.model_spec}</span></div>
               <div><span className="text-gray-500">Conversations:</span> {results.conversations?.length ?? 0}</div>
             </div>
+            {results.domain_description && (
+              <div className="text-xs text-gray-600 max-w-3xl">{results.domain_description}</div>
+            )}
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
                 <thead>
@@ -123,17 +126,39 @@ export default function ReportsPage() {
                     <th className="py-2 pr-4">Pass</th>
                     <th className="py-2 pr-4">Weighted rate</th>
                     <th className="py-2 pr-4">Turns</th>
+                    <th className="py-2 pr-4">Failed turns</th>
+                    <th className="py-2 pr-4">Failed metrics</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(results.conversations || []).map((c:any) => (
-                    <tr key={c.conversation_id} className="border-t">
-                      <td className="py-2 pr-4 font-mono">{c.conversation_id}</td>
-                      <td className="py-2 pr-4">{c.summary?.conversation_pass ? <Badge variant="success">pass</Badge> : <Badge variant="danger">fail</Badge>}</td>
-                      <td className="py-2 pr-4">{(c.summary?.weighted_pass_rate ?? 0).toFixed(2)}</td>
-                      <td className="py-2 pr-4">{(c.turns || []).length}</td>
-                    </tr>
-                  ))}
+                  {(results.conversations || []).map((c:any) => {
+                    const title = c.conversation_title || c.conversation_slug || c.conversation_id
+                    const slug = c.conversation_slug || c.conversation_id
+                    const domain = c.domain
+                    const behavior = c.behavior
+                    const scenario = c.scenario
+                    const s = c.summary || {}
+                    const turnsTotal = typeof s.total_user_turns === 'number' ? s.total_user_turns : (c.turns || []).length
+                    const failedTurns = s.failed_turns_count ?? 0
+                    const failedMetrics = Array.isArray(s.failed_metrics) ? s.failed_metrics.join(', ') : ''
+                    return (
+                      <tr key={c.conversation_id} className="border-t align-top">
+                        <td className="py-2 pr-4">
+                          <div className="font-medium">{title}</div>
+                          <div className="text-[11px] text-gray-500">{slug}</div>
+                          <div className="text-[11px] text-gray-600">{[domain, behavior, scenario].filter(Boolean).join(' • ')}</div>
+                          {c.conversation_description && (
+                            <div className="text-[11px] text-gray-600 truncate max-w-[520px]" title={c.conversation_description}>{c.conversation_description}</div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4">{s.conversation_pass ? <Badge variant="success">pass</Badge> : <Badge variant="danger">fail</Badge>}</td>
+                        <td className="py-2 pr-4">{(s.weighted_pass_rate ?? 0).toFixed(2)}</td>
+                        <td className="py-2 pr-4">{turnsTotal}</td>
+                        <td className="py-2 pr-4">{failedTurns}</td>
+                        <td className="py-2 pr-4 whitespace-pre-wrap break-words max-w-[360px]">{failedMetrics}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -156,7 +181,10 @@ export default function ReportsPage() {
                   <span className="w-28">Turn override</span>
                   <Select className="grow" value={fbTurnId} onChange={e => setFbTurnId(e.target.value)}>
                     <option value="">none</option>
-                    {(results.conversations || []).flatMap((c:any) => (c.turns||[]).map((t:any) => ({ key: `${c.conversation_id}#${t.turn_index}`, label: `${c.conversation_id} turn ${t.turn_index}` }))).map(item => (
+                    {(results.conversations || []).flatMap((c:any) => {
+                      const title = c.conversation_title || c.conversation_slug || c.conversation_id
+                      return (c.turns || []).map((t:any) => ({ key: `${c.conversation_id}#${t.turn_index}`, label: `${title} — turn ${t.turn_index}` }))
+                    }).map((item:any) => (
                       <option key={item.key} value={item.key}>{item.label}</option>
                     ))}
                   </Select>

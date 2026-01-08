@@ -2,24 +2,24 @@
   "metrics": [
     {
       "name": "exact_match",
-      "enabled": true,
-      "weight": 1
+      "enabled": false,
+      "weight": 0.8
     },
     {
       "name": "semantic_similarity",
       "enabled": true,
-      "weight": 1,
+      "weight": 0.8,
       "threshold": 0.8
     },
     {
       "name": "consistency",
       "enabled": true,
-      "weight": 1
+      "weight": 0.8
     },
     {
       "name": "adherence",
       "enabled": true,
-      "weight": 1
+      "weight": 0.8
     },
     {
       "name": "hallucination",

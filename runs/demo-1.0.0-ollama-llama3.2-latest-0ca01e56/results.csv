@@ -1,3 +1,0 @@
-run_id,dataset_id,model_spec,conversation_id,conversation_pass,weighted_pass_rate,turn_index,exact_pass,semantic_pass,semantic_score_max,adherence_pass,hallucination_pass,consistency_pass
-demo-1.0.0-ollama-llama3.2-latest-0ca01e56,demo,ollama:llama3.2:latest,conv1,False,0.0,0,False,False,,True,False,True
-demo-1.0.0-ollama-llama3.2-latest-0ca01e56,demo,ollama:llama3.2:latest,conv1,False,0.0,2,False,False,,True,True,True

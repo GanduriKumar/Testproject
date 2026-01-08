@@ -71,14 +71,68 @@ def per_turn_csv(dataset: Dict[str, Any], golden: Dict[str, Any]) -> str:
 
     out = StringIO()
     w = csv.writer(out)
-    w.writerow(["dataset_id", "conversation_id", "turn_index", "role", "text", "expected_variants", "final_decision"])
+    w.writerow([
+        # identity
+        "dataset_id", "conversation_id", "conversation_slug", "conversation_title",
+        "domain", "behavior", "scenario", "persona", "locale", "channel", "complexity", "case_type",
+        # descriptions
+        "domain_description", "conversation_description",
+        # turn
+        "turn_index", "turn_key", "role",
+        # content
+        "text", "expected_variants",
+        # final outcome (summary row only)
+        "final_decision",
+    ])
     dsid = dataset.get("dataset_id")
+    import re
+    def slugify(text: str) -> str:
+        t = (text or "").lower()
+        t = re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+        return t[:80]
+
+    domain_description = (dataset.get("metadata") or {}).get("short_description")
     for cid, conv in convo_map.items():
         turns = conv.get("turns", [])
+        meta_ds = dataset.get("metadata", {}) or {}
+        meta = conv.get("metadata") or {}
+        d = meta.get("domain") or meta_ds.get("domain")
+        b = meta.get("behavior") or meta_ds.get("behavior")
+        s = meta.get("scenario") or meta.get("case")
+        persona = meta.get("persona")
+        locale = meta.get("locale")
+        channel = meta.get("channel")
+        complexity = meta.get("complexity") or meta_ds.get("difficulty")
+        case_type = meta.get("case_type") or meta.get("type")
+        title = conv.get("title") or ((f"{b}: {s}" if b and s else (b or s)) if (b or s) else None) or cid
+        conv_description = meta.get("short_description")
+        parts = [p for p in [d, b, s, persona, locale] if p]
+        slug = slugify("-".join(parts)) if parts else slugify(cid)
         for idx, t in enumerate(turns):
             expected = ";".join(exp_map.get(cid, {}).get(idx, []))
-            w.writerow([dsid, cid, idx, t.get("role"), t.get("text"), expected, ""])
+            turn_key = f"{slug}#{idx}"
+            w.writerow([
+                # identity
+                dsid, cid, slug, title,
+                d, b, s, persona, locale, channel, complexity, case_type,
+                # descriptions
+                domain_description, conv_description,
+                # turn
+                idx, turn_key, t.get("role"),
+                # content
+                t.get("text"), expected,
+                # final outcome
+                "",
+            ])
         # add a summary final decision row with turn_index = -1
         outcome = outcomes.get(cid, {})
-        w.writerow([dsid, cid, -1, "", "", "", outcome.get("decision")])
+        w.writerow([
+            dsid, cid, slug, title,
+            d, b, s, persona, locale, channel, complexity, case_type,
+            # descriptions
+            domain_description, conv_description,
+            -1, f"{slug}#-1", "",
+            "", "",
+            outcome.get("decision"),
+        ])
     return out.getvalue()

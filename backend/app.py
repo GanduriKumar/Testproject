@@ -48,16 +48,27 @@ class SettingsBody(BaseModel):
     ollama_host: Optional[str] = None
     google_api_key: Optional[str] = None
     semantic_threshold: Optional[float] = None
+    metrics: Optional[Dict[str, Any]] = None  # persisted UI toggles
 
 
 def get_settings():
     google_api_key = os.getenv("GOOGLE_API_KEY")
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     semantic_threshold = float(os.getenv("SEMANTIC_THRESHOLD", "0.80"))
+    # Load persisted metrics config if present
+    root = Path(__file__).resolve().parents[1]
+    cfg_path = root / 'configs' / 'metrics.json'
+    metrics_cfg = None
+    try:
+        if cfg_path.exists():
+            metrics_cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+    except Exception:
+        metrics_cfg = None
     return {
         "GOOGLE_API_KEY": google_api_key,
         "OLLAMA_HOST": ollama_host,
         "SEMANTIC_THRESHOLD": semantic_threshold,
+        "METRICS_CFG": metrics_cfg,
     }
 
 app = FastAPI(title="LLM Eval Backend", version=APP_VERSION)
@@ -119,6 +130,7 @@ async def get_settings_api():
         "ollama_host": s["OLLAMA_HOST"],
         "gemini_enabled": bool(s["GOOGLE_API_KEY"]),
         "semantic_threshold": s["SEMANTIC_THRESHOLD"],
+        "metrics": s.get("METRICS_CFG"),
     }
 
 
@@ -570,6 +582,153 @@ async def run_artifacts(run_id: str, type: str = "json"):
         return FileResponse(str(out_path), media_type="text/html", filename="report.html")
     else:
         raise HTTPException(status_code=400, detail="unknown type")
+
+
+    @app.post("/runs/{run_id}/rebuild")
+    async def rebuild_run_artifacts(run_id: str):
+        """Rebuild and enrich results.json and results.csv for an existing run.
+        Adds human-friendly identity, per-turn snippets, rollups, and writes CSV.
+        """
+        reader: RunArtifactReader = app.state.reader
+        writer: RunArtifactWriter = app.state.artifacts
+        repo: DatasetRepository = app.state.orch.repo
+        # Load existing
+        res_path = reader.layout.results_json_path(run_id)
+        if not res_path.exists():
+            raise HTTPException(status_code=404, detail="results.json not found")
+        try:
+            results = json.loads(res_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"invalid results.json: {e}")
+        ds_id = results.get("dataset_id")
+        if not ds_id:
+            raise HTTPException(status_code=400, detail="results missing dataset_id")
+        try:
+            ds = repo.get_dataset(ds_id)
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"dataset not found: {e}")
+
+        # Build conversation map from dataset
+        ds_meta = ds.get("metadata", {}) or {}
+        domain_description = ds_meta.get("short_description")
+        conv_map: dict[str, dict] = {c.get("conversation_id"): c for c in (ds.get("conversations") or [])}
+
+        # Helpers
+        import re
+        def slugify(text: str) -> str:
+            t = (text or "").lower()
+            t = re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+            return t[:80]
+
+        def conv_identity(cid: str) -> dict:
+            c = conv_map.get(cid) or {}
+            meta = c.get("metadata") or {}
+            d = meta.get("domain") or ds_meta.get("domain")
+            b = meta.get("behavior") or ds_meta.get("behavior")
+            s = meta.get("scenario") or meta.get("case")
+            persona = meta.get("persona")
+            locale = meta.get("locale")
+            channel = meta.get("channel")
+            complexity = meta.get("complexity") or ds_meta.get("difficulty")
+            case_type = meta.get("case_type") or meta.get("type")
+            title = c.get("title") or ((f"{b}: {s}" if b and s else (b or s)) if (b or s) else None) or cid
+            parts = [p for p in [d, b, s, persona, locale] if p]
+            slug = slugify("-".join(parts)) if parts else slugify(cid)
+            return {
+                "conversation_slug": slug,
+                "conversation_title": title,
+                "domain": d,
+                "behavior": b,
+                "scenario": s,
+                "persona": persona,
+                "locale": locale,
+                "channel": channel,
+                "complexity": complexity,
+                "case_type": case_type,
+            }
+
+        # Enrich per conversation
+        from .artifacts import RunFolderLayout
+        layout = RunFolderLayout(reader.layout.runs_root)
+        updated = 0
+        for conv in results.get("conversations", []) or []:
+            cid = conv.get("conversation_id")
+            if not cid:
+                continue
+            ident = conv_identity(cid)
+            conv.update({k: v for k, v in ident.items() if k not in conv or conv.get(k) in (None, "")})
+            # trace dir
+            conv["trace_dir"] = str(layout.conversation_subdir(run_id, cid))
+            # set conversation_description if present in dataset
+            if "conversation_description" not in conv:
+                try:
+                    conv_desc = (conv_map.get(cid, {}).get("metadata") or {}).get("short_description")
+                    if conv_desc:
+                        conv["conversation_description"] = conv_desc
+                except Exception:
+                    pass
+            # per-turn enrich
+            # open turn files to get assistant output snippet
+            from glob import glob
+            try:
+                conv_dir = layout.conversation_subdir(run_id, cid)
+                turn_files = sorted(conv_dir.glob("turn_*.json"))
+            except Exception:
+                turn_files = []
+            # map turn_index -> response content
+            resp_by_idx: dict[int, str] = {}
+            for tf in turn_files:
+                try:
+                    rec = json.loads(tf.read_text(encoding="utf-8"))
+                    uidx = int(rec.get("turn_index", 0))
+                    resp_by_idx[uidx] = ((rec.get("response", {}) or {}).get("content")) or ""
+                except Exception:
+                    continue
+            # dataset turns for user prompt snippet
+            ds_turns = (conv_map.get(cid, {}).get("turns") or []) if cid in conv_map else []
+            def snippet(t: str, n: int = 160) -> str:
+                t = (t or "").strip().replace("\n", " ")
+                return t if len(t) <= n else (t[: n - 1] + "…")
+            for t in conv.get("turns", []) or []:
+                idx = int(t.get("turn_index", 0))
+                if "turn_pass" not in t:
+                    mets = t.get("metrics", {}) or {}
+                    pass_vals = [bool(v.get("pass")) for v in mets.values() if isinstance(v, dict) and "pass" in v]
+                    t["turn_pass"] = (all(pass_vals) if pass_vals else True)
+                if "user_prompt_snippet" not in t:
+                    try:
+                        user_text = str(ds_turns[idx].get("text") or "") if 0 <= idx < len(ds_turns) else ""
+                    except Exception:
+                        user_text = ""
+                    t["user_prompt_snippet"] = snippet(user_text)
+                if "assistant_output_snippet" not in t:
+                    t["assistant_output_snippet"] = snippet(resp_by_idx.get(idx, ""), 200)
+            # summary rollups
+            summ = conv.get("summary") or {}
+            if "total_user_turns" not in summ:
+                summ["total_user_turns"] = len(conv.get("turns") or [])
+            if "failed_turns_count" not in summ:
+                summ["failed_turns_count"] = sum(1 for tt in (conv.get("turns") or []) if tt.get("turn_pass") is False)
+            if "failed_metrics" not in summ:
+                failed_metrics = sorted({
+                    name for tt in (conv.get("turns") or []) for name, m in (tt.get("metrics") or {}).items()
+                    if isinstance(m, dict) and m.get("pass") is False
+                })
+                summ["failed_metrics"] = failed_metrics
+            conv["summary"] = summ
+            updated += 1
+
+        # Write back results.json and results.csv
+        # add domain description at top level
+        if domain_description:
+            results["domain_description"] = domain_description
+        writer.write_results_json(run_id, results)
+        try:
+            writer.write_results_csv(run_id, results)
+        except Exception as e:
+            # still return ok if JSON was updated
+            return {"ok": True, "updated_json": True, "updated_csv": False, "error": str(e), "conversations": updated}
+        return {"ok": True, "updated_json": True, "updated_csv": True, "conversations": updated}
 
 
 @app.post("/runs/{run_id}/feedback")

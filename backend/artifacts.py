@@ -107,35 +107,78 @@ class RunArtifactWriter:
         with path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             header = [
+                # identity
                 "run_id", "dataset_id", "model_spec",
-                "conversation_id", "conversation_pass", "weighted_pass_rate",
-                "turn_index",
+                "conversation_id", "conversation_slug", "conversation_title",
+                "domain", "behavior", "scenario", "persona", "locale", "channel", "complexity", "case_type",
+                # descriptions
+                "domain_description", "conversation_description",
+                # conversation summary
+                "conversation_pass", "weighted_pass_rate", "total_user_turns", "failed_turns_count", "failed_metrics",
+                # turn
+                "turn_index", "turn_key",
+                # snippets
+                "user_prompt_snippet", "assistant_output_snippet",
+                # metrics
                 "exact_pass", "semantic_pass", "semantic_score_max",
                 "adherence_pass", "hallucination_pass", "consistency_pass",
+                # rollup
+                "turn_pass",
             ]
             writer.writerow(header)
             run_id_val = results.get("run_id")
             dataset_id = results.get("dataset_id")
             model_spec = results.get("model_spec")
+            dom_desc = results.get("domain_description")
             for conv in results.get("conversations", []) or []:
                 cid = conv.get("conversation_id")
+                slug = conv.get("conversation_slug")
+                title = conv.get("conversation_title")
+                domain = conv.get("domain")
+                behavior = conv.get("behavior")
+                scenario = conv.get("scenario")
+                persona = conv.get("persona")
+                locale = conv.get("locale")
+                channel = conv.get("channel")
+                complexity = conv.get("complexity")
+                case_type = conv.get("case_type")
+                conv_desc = conv.get("conversation_description")
                 summ = conv.get("summary", {})
                 cpass = summ.get("conversation_pass")
                 wr = summ.get("weighted_pass_rate")
+                total_user_turns = summ.get("total_user_turns")
+                failed_turns_count = summ.get("failed_turns_count")
+                failed_metrics = ";".join(summ.get("failed_metrics") or [])
                 for t in conv.get("turns", []) or []:
                     idx = t.get("turn_index")
+                    turn_key = f"{slug}#{idx}" if slug is not None else f"{cid}#{idx}"
+                    user_snip = t.get("user_prompt_snippet")
+                    asst_snip = t.get("assistant_output_snippet")
                     mets = t.get("metrics", {})
                     ex = mets.get("exact") or {}
                     se = mets.get("semantic") or {}
                     ad = mets.get("adherence") or {}
                     ha = mets.get("hallucination") or {}
                     co = mets.get("consistency") or {}
+                    tpass = t.get("turn_pass")
                     row = [
+                        # identity
                         run_id_val, dataset_id, model_spec,
-                        cid, cpass, wr,
-                        idx,
+                        cid, slug, title,
+                        domain, behavior, scenario, persona, locale, channel, complexity, case_type,
+                        # descriptions
+                        dom_desc, conv_desc,
+                        # conversation summary
+                        cpass, wr, total_user_turns, failed_turns_count, failed_metrics,
+                        # turn
+                        idx, turn_key,
+                        # snippets
+                        user_snip, asst_snip,
+                        # metrics
                         bool(ex.get("pass")), bool(se.get("pass")), se.get("score_max"),
                         bool(ad.get("pass")), bool(ha.get("pass")), bool(co.get("pass")),
+                        # rollup
+                        bool(tpass),
                     ]
                     writer.writerow(row)
         return path

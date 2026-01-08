@@ -62,7 +62,8 @@ def aggregate_conversation(
             severe_fail = True
             sev_reasons.append(f"{m} failed on final turn")
 
-    # Aggregate a simple weighted pass rate across turns where pass= (exact.pass or semantic.pass)
+    # Aggregate a simple weighted pass rate across turns using per-turn rollup if present,
+    # else fallback to (exact.pass or semantic.pass)
     n = len(per_turn_results)
     if n == 0:
         weighted_score = 0.0
@@ -74,14 +75,17 @@ def aggregate_conversation(
         total = 0.0
         passed_turns = 0
         for i, r in enumerate(per_turn_results):
-            mets = r.get("metrics", {})
-            turn_pass = False
-            ex = mets.get("exact")
-            se = mets.get("semantic")
-            if isinstance(ex, dict) and ex.get("pass"):
-                turn_pass = True
-            if isinstance(se, dict) and se.get("pass"):
-                turn_pass = True
+            if "turn_pass" in r:
+                turn_pass = bool(r.get("turn_pass"))
+            else:
+                mets = r.get("metrics", {})
+                turn_pass = False
+                ex = mets.get("exact")
+                se = mets.get("semantic")
+                if isinstance(ex, dict) and ex.get("pass"):
+                    turn_pass = True
+                if isinstance(se, dict) and se.get("pass"):
+                    turn_pass = True
             if turn_pass:
                 passed_turns += 1
                 total += w[i]
