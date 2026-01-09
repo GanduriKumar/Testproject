@@ -37,6 +37,9 @@
         {% if conv.conversation_slug %}{% if meta_line|length %} • {% endif %}<span class="muted">{{ conv.conversation_slug }}</span>{% endif %}
       </div>
       <div class="muted">Weighted pass rate: {{ '%.2f'|format(conv.summary.weighted_pass_rate or 0) }}</div>
+      {% if conv.summary.high_severity_violation is defined and conv.summary.high_severity_violation %}
+      <div class="muted"><strong>High-severity violations</strong>: {{ (conv.summary.severity_reasons or [])|join('; ') }}</div>
+      {% endif %}
       {% if conv.conversation_description %}
       <div class="muted">{{ conv.conversation_description }}</div>
       {% endif %}
@@ -82,7 +85,11 @@
           {% set ad = t.metrics.adherence if t.metrics is defined and t.metrics.adherence is defined else None %}
           {% set ha = t.metrics.hallucination if t.metrics is defined and t.metrics.hallucination is defined else None %}
           <td class="{{ 'pass' if ex and ex.pass else 'fail' if ex is not none else '' }}">{{ ex.pass if ex else '' }}</td>
-          <td class="{{ 'pass' if se and se.pass else 'fail' if se is not none else '' }}">{{ '%.2f'|format(se.score_max) if se and se.score_max is defined else (se.pass if se else '') }}</td>
+          {% if se and se.skipped %}
+            <td class="muted" title="{{ se.reason or '' }}">skipped</td>
+          {% else %}
+            <td class="{{ 'pass' if se and se.pass else 'fail' if se is not none else '' }}">{{ '%.2f'|format(se.score_max) if se and se.score_max is defined else (se.pass if se else '') }}</td>
+          {% endif %}
           <td class="{{ 'pass' if co and co.pass else 'fail' if co is not none else '' }}">{{ co.pass if co else '' }}</td>
           <td class="{{ 'pass' if ad and ad.pass else 'fail' if ad is not none else '' }}">{{ ad.pass if ad else '' }}</td>
           <td class="{{ 'pass' if ha and ha.pass else 'fail' if ha is not none else '' }}">{{ ha.pass if ha else '' }}</td>

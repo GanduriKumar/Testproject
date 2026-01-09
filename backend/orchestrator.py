@@ -106,8 +106,12 @@ class Orchestrator:
     def cancel(self, job_id: str) -> None:
         jr = self.jobs[job_id]
         jr._cancel = True
-        # surface intent immediately
-        jr.state = "cancelling"
+        # If job is not yet running, mark as cancelled immediately
+        if jr.state in ("queued", "paused"):
+            jr.state = "cancelled"
+        else:
+            # surface intent immediately
+            jr.state = "cancelling"
         jr.updated_at = _now_iso()
         try:
             self._writer.write_job_status(jr.run_id, {
@@ -250,6 +254,9 @@ class Orchestrator:
                     "case_type": case_type,
                 }
 
+            # Simple per-run embedding cache for semantic metric
+            embed_cache: Dict[str, List[float]] = {}
+
             for conv in ds.get("conversations", []):
                 if jr._cancel:
                     jr.state = "cancelled"
@@ -381,6 +388,12 @@ class Orchestrator:
                                 })
                             except Exception:
                                 pass
+                        # Allow run-level decoding overrides via config.context.params
+                        params_override = None
+                        try:
+                            params_override = (jr.config.get("context") or {}).get("params")
+                        except Exception:
+                            params_override = None
                         await self._runner.run_turn(
                             run_id=jr.run_id,
                             provider=provider,
@@ -390,6 +403,7 @@ class Orchestrator:
                             turn_index=idx,
                             turns=turns[: idx + 1],
                             conv_meta=conv_meta,
+                            params_override=params_override,
                         )
                 jr.completed_conversations += 1
                 jr.progress_pct = int(jr.completed_conversations * 100 / max(1, jr.total_conversations))
@@ -423,9 +437,21 @@ class Orchestrator:
 
             for conv in ds.get("conversations", []):
                 cid = conv.get("conversation_id")
-                # Match the safe path used by TurnRunner
-                from .artifacts import RunFolderLayout
-                conv_dir = RunFolderLayout(self.runs_root).conversation_subdir(jr.run_id, cid)
+                # Locate conversation trace directory (support both hashed and plain layouts)
+                try:
+                    from .artifacts import RunFolderLayout  # type: ignore
+                except Exception:
+                    from artifacts import RunFolderLayout  # type: ignore
+                # Prefer plain layout used by TurnRunner in tests; fallback to hashed
+                conv_dir_plain = self.runs_root / jr.run_id / "conversations" / cid
+                conv_dir_hashed = RunFolderLayout(self.runs_root).conversation_subdir(jr.run_id, cid)
+                if conv_dir_plain.exists():
+                    conv_dir = conv_dir_plain
+                elif conv_dir_hashed.exists():
+                    conv_dir = conv_dir_hashed
+                else:
+                    # default to hashed to avoid path length issues
+                    conv_dir = conv_dir_hashed
                 turn_files = sorted(conv_dir.glob("turn_*.json"))
                 per_turn: List[Dict[str, Any]] = []
                 identity = _conv_identity(conv)
@@ -451,7 +477,9 @@ class Orchestrator:
                         continue
                     out_text = ((rec.get("response", {}) or {}).get("content")) or ""
                     uidx = int(rec.get("turn_index", 0))
-                    assistant_idx = uidx + 1  # map to assistant turn in golden
+                    # Robust mapping of user turn index -> assistant turn index in golden
+                    # Preferred (convgen_v2): A1=1, A2=3 => assistant_idx = 2*uidx + 1
+                    cand_idxs = [2 * uidx + 1, uidx + 1, uidx]
                     # derive user prompt snippet from dataset conversation
                     user_text = ""
                     try:
@@ -466,8 +494,12 @@ class Orchestrator:
                     mets: Dict[str, Any] = {}
                     # exact (if selected and golden exists)
                     exp_variants = []
-                    if golden_entry and assistant_idx in golden_entry:
-                        exp_variants = golden_entry[assistant_idx]
+                    if golden_entry:
+                        # pick first matching candidate index
+                        for ax in cand_idxs:
+                            if ax in golden_entry:
+                                exp_variants = golden_entry[ax]
+                                break
                         if "exact" in metrics_wanted:
                             try:
                                 mets["exact"] = exact_match(out_text, exp_variants)
@@ -479,7 +511,7 @@ class Orchestrator:
                                 thr = (jr.config.get("thresholds", {}) or {}).get("semantic")
                                 if thr is None:
                                     thr = (jr.config.get("thresholds", {}) or {}).get("semantic_threshold")
-                                mets["semantic"] = await semantic_similarity(out_text, exp_variants, threshold=thr)
+                                mets["semantic"] = await semantic_similarity(out_text, exp_variants, threshold=thr, cache=embed_cache)
                             except Exception as e:
                                 mets["semantic"] = {"metric": "semantic", "pass": False, "error": str(e)}
                     # policy/consistency metrics don't require gold variants
@@ -488,7 +520,8 @@ class Orchestrator:
                     except Exception as e:
                         mets["consistency"] = {"metric": "consistency", "pass": False, "error": str(e)}
                     try:
-                        mets["adherence"] = adherence(out_text, golden_constraints)
+                        exp_decision = (golden_outcome or {}).get("decision")
+                        mets["adherence"] = adherence(out_text, golden_constraints, expected_decision=exp_decision)
                     except Exception as e:
                         mets["adherence"] = {"metric": "adherence", "pass": False, "error": str(e)}
                     try:
@@ -497,9 +530,10 @@ class Orchestrator:
                     except Exception as e:
                         mets["hallucination"] = {"metric": "hallucination", "pass": False, "error": str(e)}
 
-                    # compute turn_pass if any metric present
+                    # compute turn_pass ignoring metrics that were explicitly skipped
                     try:
-                        pass_vals = [bool(v.get("pass")) for v in mets.values() if isinstance(v, dict) and "pass" in v]
+                        considered = [v for v in mets.values() if isinstance(v, dict) and ("pass" in v) and not v.get("skipped")]
+                        pass_vals = [bool(v.get("pass")) for v in considered]
                         turn_pass = all(pass_vals) if pass_vals else True
                     except Exception:
                         turn_pass = False
@@ -520,7 +554,7 @@ class Orchestrator:
                     failed_turns_count = sum(1 for t in per_turn if not t.get("turn_pass", True))
                     failed_metrics = sorted({
                         name for t in per_turn for name, m in (t.get("metrics") or {}).items()
-                        if isinstance(m, dict) and m.get("pass") is False
+                        if isinstance(m, dict) and m.get("pass") is False and not m.get("skipped")
                     })
                     summary = {
                         **(summary or {}),

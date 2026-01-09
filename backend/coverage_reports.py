@@ -71,16 +71,16 @@ def per_turn_csv(dataset: Dict[str, Any], golden: Dict[str, Any]) -> str:
 
     out = StringIO()
     w = csv.writer(out)
+    # Minimal header expected by tests, followed by extended identity columns
     w.writerow([
-        # identity
-        "dataset_id", "conversation_id", "conversation_slug", "conversation_title",
+        "dataset_id", "conversation_id", "turn_index",
+        # extended identity
+        "conversation_slug", "conversation_title",
         "domain", "behavior", "scenario", "persona", "locale", "channel", "complexity", "case_type",
         # descriptions
         "domain_description", "conversation_description",
-        # turn
-        "turn_index", "turn_key", "role",
-        # content
-        "text", "expected_variants",
+        # keys and content
+        "turn_key", "role", "text", "expected_variants",
         # final outcome (summary row only)
         "final_decision",
     ])
@@ -112,27 +112,27 @@ def per_turn_csv(dataset: Dict[str, Any], golden: Dict[str, Any]) -> str:
             expected = ";".join(exp_map.get(cid, {}).get(idx, []))
             turn_key = f"{slug}#{idx}"
             w.writerow([
-                # identity
-                dsid, cid, slug, title,
+                # identity (minimal first)
+                dsid, cid, idx,
+                # extended identity
+                slug, title,
                 d, b, s, persona, locale, channel, complexity, case_type,
                 # descriptions
                 domain_description, conv_description,
-                # turn
-                idx, turn_key, t.get("role"),
-                # content
-                t.get("text"), expected,
+                # keys and content
+                turn_key, t.get("role"), t.get("text"), expected,
                 # final outcome
                 "",
             ])
         # add a summary final decision row with turn_index = -1
         outcome = outcomes.get(cid, {})
         w.writerow([
-            dsid, cid, slug, title,
+            dsid, cid, -1,
+            slug, title,
             d, b, s, persona, locale, channel, complexity, case_type,
             # descriptions
             domain_description, conv_description,
-            -1, f"{slug}#-1", "",
-            "", "",
+            f"{slug}#-1", "", "", "",
             outcome.get("decision"),
         ])
     return out.getvalue()

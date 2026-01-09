@@ -1,7 +1,12 @@
 from __future__ import annotations
 from typing import Dict, List, Any, Tuple, Optional
-from .system_prompt import build_system_prompt, DEFAULT_PARAMS
 import json
+
+# Support both package and top-level imports in tests/CLI
+try:
+    from .system_prompt import build_system_prompt, DEFAULT_PARAMS  # type: ignore
+except Exception:  # ImportError when run as top-level module
+    from system_prompt import build_system_prompt, DEFAULT_PARAMS  # type: ignore
 
 # very rough token estimator (~4 chars per token)
 _DEF_TOKENS_PER_CHAR = 1 / 4.0
@@ -31,7 +36,7 @@ def _clip_text_to_tokens(text: str, max_tokens: int) -> Tuple[str, bool]:
     return clipped, True
 
 
-def build_context(domain: str, turns: List[Dict[str, str]], state: Dict[str, Any], max_tokens: int = 2048, conv_meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def build_context(domain: str, turns: List[Dict[str, str]], state: Dict[str, Any], max_tokens: int = 2048, conv_meta: Optional[Dict[str, Any]] = None, params_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Build provider-ready messages from state + last 4 turns with a simple token budget safeguard.
     Returns { messages: [...], audit: {...} }.
@@ -61,6 +66,12 @@ def build_context(domain: str, turns: List[Dict[str, str]], state: Dict[str, Any
             f"STATE={_render_state_summary(state)}"
         )
         sys_params = dict(DEFAULT_PARAMS)
+    # Apply explicit overrides last
+    if params_override:
+        try:
+            sys_params.update({k: v for k, v in params_override.items() if v is not None})
+        except Exception:
+            pass
     messages = [{"role": "system", "content": system_content}]
 
     for t in recent_turns:

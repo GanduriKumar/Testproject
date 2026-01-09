@@ -170,5 +170,62 @@
 			],
 			"group": "build"
 		}
+		,
+		{
+			"label": "Start backend API (uvicorn)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"uvicorn",
+				"backend.app:app",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"8000"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate coverage v2 (combined)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"backend.cli",
+				"coverage",
+				"--root",
+				".",
+				"--combined",
+				"--v2",
+				"--save",
+				"--overwrite",
+				"--version",
+				"0.0.2"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate coverage v2 (split)",
+			"type": "shell",
+			"command": "C:/Users/kumar.gn/PycharmProjects/Testproject/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"backend.cli",
+				"coverage",
+				"--root",
+				".",
+				"--split",
+				"--v2",
+				"--save",
+				"--overwrite",
+				"--version",
+				"0.0.2"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
 	]
 }
