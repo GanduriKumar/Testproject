@@ -348,20 +348,20 @@ export default function RunsPage() {
         ) : (
           <div className="space-y-4 text-sm">
             <div className="grid sm:grid-cols-2 gap-4">
-              <label className="flex items-center gap-2">
-                <span className="w-28">Dataset</span>
-                <Select className="grow" value={datasetId} onChange={e => setDatasetId(e.target.value)}>
+              <div className="col-span-full">
+                <label className="block text-sm font-medium mb-1">Dataset</label>
+                <Select className="w-full" value={datasetId} onChange={e => setDatasetId(e.target.value)}>
                   {datasets.map(d => (
                     <option key={d.dataset_id} value={d.dataset_id}>{d.dataset_id} {d.version ? `(${d.version})` : ''}</option>
                   ))}
                 </Select>
-              </label>
-              <label className="flex items-center gap-2">
-                <span className="w-28">Model</span>
-                <Select className="grow" value={modelSpec} onChange={e => setModelSpec(e.target.value)}>
+              </div>
+              <div className="col-span-full mt-4">
+                <label className="block text-sm font-medium mb-1">Model</label>
+                <Select className="w-full" value={modelSpec} onChange={e => setModelSpec(e.target.value)}>
                   {availableModels.map(m => (<option key={m.id} value={m.id}>{m.label}</option>))}
                 </Select>
-              </label>
+              </div>
               <label className="flex items-center gap-2">
                 <span className="w-28">Semantic thr.</span>
                 <Input type="number" step="0.01" min={0} max={1} className="w-28" value={semanticThreshold} onChange={e => setSemanticThreshold(Number(e.target.value))} />
