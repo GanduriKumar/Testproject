@@ -7,7 +7,7 @@
     },
     {
       "name": "semantic_similarity",
-      "enabled": false,
+      "enabled": true,
       "weight": 0.8,
       "threshold": 0.8
     },
