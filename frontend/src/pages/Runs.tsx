@@ -413,7 +413,17 @@ export default function RunsPage() {
                   return (
                     <>
                       <div className="flex flex-col items-center gap-3">
-                        <CircularProgress value={pct} size={224} strokeWidth={12} bezel />
+                        {(() => {
+                          const progressVariant: 'primary' | 'success' | 'warning' | 'danger' =
+                            status.state === 'succeeded'
+                              ? 'success'
+                              : (status.state === 'failed' || status.state === 'cancelled')
+                              ? 'danger'
+                              : 'warning'
+                          return (
+                            <CircularProgress value={pct} size={224} strokeWidth={12} bezel variant={progressVariant} />
+                          )
+                        })()}
                         {status.state !== 'succeeded' && status.state !== 'failed' && status.state !== 'cancelled' && (
                           <div className="flex gap-2">
                             {status.state !== 'paused' ? (

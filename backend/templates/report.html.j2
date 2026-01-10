@@ -13,15 +13,221 @@
     th, td { padding: .5rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
     .muted { color: #64748b; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #e5f0ff; color: #1e40af; font-size: .8rem; }
+
+    /* Visual donut charts */
+    :root { --pass-color: #16a34a; --fail-color: #dc2626; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; align-items: center; }
+    .chart-card { display: flex; gap: 1rem; align-items: center; }
+    .donut { position: relative; width: 140px; height: 140px; border-radius: 50%;
+             background: conic-gradient(var(--pass-color) 0 var(--p), var(--fail-color) var(--p) 100%);
+             box-shadow: inset 0 0 0 12px #f3f4f6, 0 2px 6px rgba(0,0,0,.08); }
+    .donut::before { content: ""; position: absolute; inset: 18px; border-radius: 50%; background: #ffffff; box-shadow: inset 0 0 0 1px #e5e7eb; }
+    .donut::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px #e5e7eb; opacity: .8; }
+    .donut-label { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 600; font-size: 14px; color: #111827; }
+    .legend { font-size: .85rem; color: #374151; }
+    .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 9999px; margin-right: 6px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="header"><h2>Run Summary</h2></div>
-    <p><strong>Run ID:</strong> {{ run_id }} | <strong>Dataset:</strong> {{ dataset_id }} | <strong>Model:</strong> {{ model_spec }}</p>
+    <p><strong>Run ID:</strong> {{ run_id }}</p>
+    <p><strong>Dataset:</strong> {{ dataset_id }}</p>
+    <p><strong>Model:</strong> {{ model_spec }}</p>
     {% if domain_description %}
     <p class="muted">{{ domain_description }}</p>
     {% endif %}
+  </div>
+
+  {#
+    Compute aggregate counts for conversations and turns
+  #}
+  {% set cns = namespace(total=0, passed=0) %}
+  {% for c in conversations %}
+    {% set cns.total = cns.total + 1 %}
+    {% if c.summary is defined and c.summary and c.summary.conversation_pass is defined and c.summary.conversation_pass %}
+      {% set cns.passed = cns.passed + 1 %}
+    {% endif %}
+  {% endfor %}
+  {% set conv_total = cns.total %}
+  {% set conv_pass = cns.passed %}
+  {% set conv_fail = conv_total - conv_pass %}
+
+  {% set tns = namespace(total=0, passed=0) %}
+  {% for c in conversations %}
+    {% for t in c.turns %}
+      {% set tns.total = tns.total + 1 %}
+      {% if t.turn_pass is not defined or t.turn_pass %}
+        {% set tns.passed = tns.passed + 1 %}
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+  {% set turn_total = tns.total %}
+  {% set turn_pass = tns.passed %}
+  {% set turn_fail = turn_total - turn_pass %}
+
+  {% set conv_pass_pct = (100 * conv_pass / conv_total) if conv_total > 0 else 0 %}
+  {% set turn_pass_pct = (100 * turn_pass / turn_total) if turn_total > 0 else 0 %}
+
+  <div class="card">
+    <div class="header"><h2>Overview</h2></div>
+    <div class="charts">
+      <div class="chart-card">
+        <div class="donut" style="--p: {{ '%.2f'|format(conv_pass_pct) }}%">
+          <div class="donut-label">{{ conv_pass }}/{{ conv_total }}</div>
+        </div>
+        <div>
+          <div><strong>Conversations</strong></div>
+          <div class="legend"><span class="dot" style="background: var(--pass-color)"></span> Pass: {{ conv_pass }}</div>
+          <div class="legend"><span class="dot" style="background: var(--fail-color)"></span> Fail: {{ conv_fail }}</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="donut" style="--p: {{ '%.2f'|format(turn_pass_pct) }}%">
+          <div class="donut-label">{{ turn_pass }}/{{ turn_total }}</div>
+        </div>
+        <div>
+          <div><strong>Turns</strong></div>
+          <div class="legend"><span class="dot" style="background: var(--pass-color)"></span> Pass: {{ turn_pass }}</div>
+          <div class="legend"><span class="dot" style="background: var(--fail-color)"></span> Fail: {{ turn_fail }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="header"><h2>Failure Explanations</h2></div>
+    <div class="grid-2">
+      <div>
+        <h3>Conversation Failures</h3>
+        <table>
+          <thead>
+            <tr><th>Summary</th><th>Failure reason</th></tr>
+          </thead>
+          <tbody>
+          {% for c in conversations %}
+            {% set c_pass = c.summary.conversation_pass if c.summary is defined and c.summary and c.summary.conversation_pass is defined else True %}
+            {% if not c_pass %}
+            <tr>
+              <td>
+                {% set raw_summary = (c.conversation_description if c.conversation_description is defined and c.conversation_description else (c.scenario if c.scenario is defined else '')) %}
+                {% if not raw_summary and c.turns and c.turns[0] and (c.turns[0].user_prompt_snippet is defined) %}
+                  {% set raw_summary = c.turns[0].user_prompt_snippet %}
+                {% endif %}
+                {% set clean = (raw_summary|string) | replace('\n',' ') | replace('\r',' ') %}
+                {{ clean | truncate(180) }}
+              </td>
+              <td>
+                {% set outcome = c.summary.final_outcome if c.summary is defined and c.summary.final_outcome is defined else none %}
+                {% if outcome and outcome.reasons and outcome.reasons|length > 0 %}
+                  {% set pretty = [] %}
+                  {% for r in outcome.reasons %}
+                    {% if 'decision mismatch' in r %}
+                      {% set exp = (r.split('expected=')|last).split(',')[0] if 'expected=' in r else 'EXPECTED' %}
+                      {% set act = (r.split('actual=')|last) if 'actual=' in r else 'ACTUAL' %}
+                      {% if act == 'None' or act == 'null' %}
+                        {% set _ = pretty.append('Model did not provide a final decision (FINAL_STATE missing or unparsable). Expected ' ~ exp ~ '.') %}
+                      {% else %}
+                        {% set _ = pretty.append('Model decision differs from expected: expected ' ~ exp ~ ', got ' ~ act ~ '.') %}
+                      {% endif %}
+                    {% elif 'mismatch' in r and ('expected=' in r or 'actual=' in r) %}
+                      {% set exp = (r.split('expected=')|last).split(',')[0] if 'expected=' in r else 'EXPECTED' %}
+                      {% set act = (r.split('actual=')|last) if 'actual=' in r else 'ACTUAL' %}
+                      {% set _ = pretty.append('Output differs from golden reference: expected ' ~ exp ~ ', got ' ~ act ~ '.') %}
+                    {% else %}
+                      {% set _ = pretty.append(r) %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ pretty | join(' ') }}
+                {% elif c.summary.failed_metrics and (c.summary.failed_metrics|length > 0) %}
+                  Failed metrics: {{ (c.summary.failed_metrics or []) | join(', ') }}
+                {% elif c.summary.failed_turns_count is defined and c.summary.failed_turns_count > 0 %}
+                  One or more turns failed their checks. See turn-level failures below.
+                {% else %}
+                  See failed turns and metrics below.
+                {% endif %}
+              </td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+          {% if conv_fail == 0 %}
+            <tr><td colspan="2" class="muted">No conversation-level failures.</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Turn Failures</h3>
+        <table>
+          <thead>
+            <tr><th>Conversation • Turn</th><th>Turn summary</th><th>Failure reasons</th></tr>
+          </thead>
+          <tbody>
+          {% set fns = namespace(any=false) %}
+          {% for c in conversations %}
+            {% for t in c.turns %}
+              {% if t.turn_pass is defined and not t.turn_pass %}
+                {% set fns.any = true %}
+                {% set ex = t.metrics.exact if t.metrics is defined and t.metrics.exact is defined else none %}
+                {% set se = t.metrics.semantic if t.metrics is defined and t.metrics.semantic is defined else none %}
+                {% set co = t.metrics.consistency if t.metrics is defined and t.metrics.consistency is defined else none %}
+                {% set ad = t.metrics.adherence if t.metrics is defined and t.metrics.adherence is defined else none %}
+                {% set ha = t.metrics.hallucination if t.metrics is defined and t.metrics.hallucination is defined else none %}
+                {% set reasons = [] %}
+                {% set failed_names = [] %}
+                {% if ex is not none and ex.pass is defined and not ex.pass %}
+                  {% set _ = failed_names.append('exact') %}
+                  {% set _ = reasons.append(ex.reason if ex.reason is defined and ex.reason else 'Exact match differs from expected.') %}
+                {% endif %}
+                {% if se is not none and se.pass is defined and not se.pass %}
+                  {% set _ = failed_names.append('semantic') %}
+                  {% set se_msg = 'Semantic similarity below threshold' %}
+                  {% if se.score_max is defined %}{% set se_msg = se_msg ~ ' (score=' ~ ('%.2f'|format(se.score_max)) ~ ')' %}{% endif %}
+                  {% if se.reason is defined and se.reason %}{% set se_msg = se.reason %}{% endif %}
+                  {% set _ = reasons.append(se_msg) %}
+                {% endif %}
+                {% if co is not none and co.pass is defined and not co.pass %}
+                  {% set _ = failed_names.append('consistency') %}
+                  {% set _ = reasons.append(co.reason if co.reason is defined and co.reason else 'Inconsistent with prior turns or golden.') %}
+                {% endif %}
+                {% if ad is not none and ad.pass is defined and not ad.pass %}
+                  {% set _ = failed_names.append('adherence') %}
+                  {% set _ = reasons.append(ad.reason if ad.reason is defined and ad.reason else 'Policy adherence criteria not met.') %}
+                {% endif %}
+                {% if ha is not none and ha.pass is defined and not ha.pass %}
+                  {% set _ = failed_names.append('hallucination') %}
+                  {% set _ = reasons.append(ha.reason if ha.reason is defined and ha.reason else 'Possible hallucination detected.') %}
+                {% endif %}
+                <tr>
+                  <td>
+                    <div><strong>{{ c.conversation_title or c.conversation_slug or c.conversation_id }}</strong></div>
+                    <div class="muted">Turn {{ t.turn_index }}</div>
+                  </td>
+                  <td>
+                    <div><em>User:</em> {{ t.user_prompt_snippet or '' }}</div>
+                    {% if t.assistant_output_snippet %}<div class="muted"><em>Assistant:</em> {{ t.assistant_output_snippet }}</div>{% endif %}
+                    {% if failed_names|length %}
+                      <div class="muted">Failed: {{ failed_names|join(', ') }}</div>
+                    {% endif %}
+                  </td>
+                  <td>{{ reasons|join('; ') if reasons|length else 'No specific reason provided.' }}</td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {% if not fns.any %}
+            <tr><td colspan="3" class="muted">No turn-level failures.</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="header"><h2>Detailed Report</h2></div>
   </div>
 
   {% for conv in conversations %}
