@@ -1075,9 +1075,173 @@ async def run_artifacts(run_id: str, type: str = "json", vertical: Optional[str]
             html = reporter.render_html(results)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"cannot render html: {e}")
-        out_path = rd_for_html.layout.run_dir(run_id) / "report.html"
+        # name report using domain, behavior and model if available
+        ds_meta = (results.get("metadata") or {}) if isinstance(results, dict) else {}
+        convs = results.get("conversations") if isinstance(results, dict) else None
+        domain = None
+        behavior = None
+        if isinstance(convs, list) and len(convs) > 0:
+            # infer from first conversation
+            c0 = convs[0] or {}
+            domain = c0.get("domain") or ds_meta.get("domain")
+            behavior = c0.get("behavior") or ds_meta.get("behavior")
+        elif ds_meta:
+            domain = ds_meta.get("domain")
+            behavior = ds_meta.get("behavior")
+        model_spec = results.get("model_spec") if isinstance(results, dict) else None
+        import re
+        def slug(s: str|None) -> str:
+            t = (s or "").strip().lower()
+            t = re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+            return t
+        fname = "report.html"
+        base = "-".join([x for x in [slug(domain), slug(behavior), slug(model_spec)] if x])
+        if base:
+            fname = f"report-{base}.html"
+        out_path = rd_for_html.layout.run_dir(run_id) / fname
         out_path.write_text(html, encoding="utf-8")
-        return FileResponse(str(out_path), media_type="text/html", filename="report.html")
+        return FileResponse(str(out_path), media_type="text/html", filename=out_path.name)
+    elif type == "pdf":
+        # Render HTML then convert to PDF (requires WeasyPrint)
+        json_path = None
+        rd_for_html = None
+        for reader in readers:
+            cand = reader.layout.results_json_path(run_id)
+            if cand.exists():
+                json_path = cand
+                rd_for_html = reader
+                break
+        if json_path is None:
+            raise HTTPException(status_code=404, detail="results.json not found")
+        results = get_json_file(json_path)
+        try:
+            html = reporter.render_html(results)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"cannot render html: {e}")
+        out_dir = rd_for_html.layout.run_dir(run_id)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        # build pdf filename similarly
+        domain = None
+        behavior = None
+        ds_meta = (results.get("metadata") or {}) if isinstance(results, dict) else {}
+        convs = results.get("conversations") if isinstance(results, dict) else None
+        if isinstance(convs, list) and len(convs) > 0:
+            c0 = convs[0] or {}
+            domain = c0.get("domain") or ds_meta.get("domain")
+            behavior = c0.get("behavior") or ds_meta.get("behavior")
+        else:
+            domain = ds_meta.get("domain")
+            behavior = ds_meta.get("behavior")
+        model_spec = results.get("model_spec") if isinstance(results, dict) else None
+        import re, os, shutil
+        def slug(s: str|None) -> str:
+            t = (s or "").strip().lower()
+            t = re.sub(r"[^a-z0-9]+", "-", t).strip("-")
+            return t
+        base = "-".join([x for x in [slug(domain), slug(behavior), slug(model_spec)] if x])
+        pdf_name = f"report-{base}.pdf" if base else "report.pdf"
+        pdf_path = out_dir / pdf_name
+
+        # Try WeasyPrint first
+        weasy_error = None
+        try:
+            from weasyprint import HTML  # type: ignore
+            HTML(string=html, base_url=str(out_dir)).write_pdf(str(pdf_path))
+            return FileResponse(str(pdf_path), media_type="application/pdf", filename=pdf_path.name)
+        except Exception as e:
+            weasy_error = e
+
+        # Fallback 1: Playwright (Chromium) rendering
+        playwright_error = None
+        try:
+            from playwright.sync_api import sync_playwright  # type: ignore
+            with sync_playwright() as p:
+                browser = None
+                # 1) Try known channels that use system-installed browsers (no download)
+                for ch in ("msedge", "chrome"):
+                    try:
+                        browser = p.chromium.launch(channel=ch)
+                        break
+                    except Exception:
+                        browser = None
+                # 2) Try explicit executable path from env or common Windows installs
+                if browser is None:
+                    import os
+                    cand_paths = [
+                        os.environ.get("PLAYWRIGHT_CHROME_PATH"),
+                        os.environ.get("CHROME_PATH"),
+                        os.environ.get("EDGE_PATH"),
+                        r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                        r"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+                        r"C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+                        r"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                    ]
+                    for ep in [c for c in cand_paths if c]:
+                        try:
+                            if os.path.exists(ep):
+                                browser = p.chromium.launch(executable_path=ep)
+                                break
+                        except Exception:
+                            browser = None
+                # 3) Last resort: default launch (may require downloaded browser)
+                if browser is None:
+                    browser = p.chromium.launch()
+
+                context = browser.new_context()
+                page = context.new_page()
+                page.set_content(html, wait_until="load")
+                page.pdf(path=str(pdf_path), format="A4", print_background=True)
+                context.close()
+                browser.close()
+                return FileResponse(str(pdf_path), media_type="application/pdf", filename=pdf_path.name)
+        except Exception as e:
+            playwright_error = e
+
+        # Fallback 2: wkhtmltopdf via pdfkit
+        try:
+            import pdfkit  # type: ignore
+        except Exception as e:
+            raise HTTPException(status_code=501, detail=f"PDF generation not available (WeasyPrint failed: {weasy_error}; Playwright failed: {playwright_error}); pdfkit not installed: {e}")
+
+        # Try default pdfkit auto-detection first (PATH)
+        try:
+            pdfkit.from_string(html, str(pdf_path), options={"quiet": ""})
+            return FileResponse(str(pdf_path), media_type="application/pdf", filename=pdf_path.name)
+        except Exception:
+            pass
+
+        # Locate wkhtmltopdf executable manually
+        exe = os.environ.get("WKHTMLTOPDF_PATH") or os.environ.get("WKHTMLTOPDF_BIN") or os.environ.get("WKHTMLTOPDF_BINARY")
+        if not exe:
+            # common Windows install paths
+            candidates = [
+                r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe",
+                r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe",
+                r"C:\\ProgramData\\chocolatey\\bin\\wkhtmltopdf.exe",
+            ]
+            for cpath in candidates:
+                if os.path.exists(cpath):
+                    exe = cpath
+                    break
+        if not exe:
+            exe = shutil.which("wkhtmltopdf")
+        # If WKHTMLTOPDF_PATH points to a folder, append executable
+        if exe and os.path.isdir(exe):
+            candidate = os.path.join(exe, "wkhtmltopdf.exe")
+            if os.path.exists(candidate):
+                exe = candidate
+        if not exe:
+            env_path = os.environ.get("PATH", "")
+            short_path = (env_path[:240] + '…') if len(env_path) > 240 else env_path
+            raise HTTPException(status_code=501, detail=f"wkhtmltopdf not found. Install wkhtmltopdf and/or set WKHTMLTOPDF_PATH to the executable. Alternatively install Playwright: pip install playwright and python -m playwright install chromium. PATH={short_path}")
+
+        try:
+            config = pdfkit.configuration(wkhtmltopdf=exe)
+            # quiet option to reduce console noise
+            pdfkit.from_string(html, str(pdf_path), configuration=config, options={"quiet": ""})
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"cannot render pdf with wkhtmltopdf: {e}")
+        return FileResponse(str(pdf_path), media_type="application/pdf", filename=pdf_path.name)
     else:
         raise HTTPException(status_code=400, detail="unknown type")
 
