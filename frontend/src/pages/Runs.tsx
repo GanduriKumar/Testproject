@@ -74,6 +74,27 @@ export default function RunsPage() {
   const [regenLoading, setRegenLoading] = useState(false)
   const [regenMsg, setRegenMsg] = useState<string | null>(null)
 
+  // Local persistence helpers (per-vertical)
+  const storageKey = useMemo(() => `runs:last:${vertical}`, [vertical])
+  type Prefs = {
+    modelSpec?: string
+    semanticThreshold?: number
+    hallucinationThreshold?: number
+    datasetId?: string
+  }
+  const loadPrefs = (): Prefs | null => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (!raw) return null
+      const obj = JSON.parse(raw)
+      if (obj && typeof obj === 'object') return obj as Prefs
+      return null
+    } catch { return null }
+  }
+  const savePrefs = (p: Prefs) => {
+    try { localStorage.setItem(storageKey, JSON.stringify(p)) } catch {}
+  }
+
   // Helper: order runs by newest first (chronological desc)
   const orderRuns = (arr: RunListItem[]) =>
     (arr || []).slice().sort((a, b) => {
@@ -141,19 +162,22 @@ export default function RunsPage() {
         const runs = await rR.json() as RunListItem[]
         setDatasets(d)
         setVer(v)
-        // choose default model based on available providers and configured defaults
-        try {
-          const oll = v.models?.ollama || 'llama3.2:latest'
-          const gem = v.models?.gemini || 'gemini-2.5'
-          const oai = v.models?.openai || 'gpt-5.1'
-          const defaultModel = (v.openai_enabled ? `openai:${oai}` : (v.gemini_enabled ? `gemini:${gem}` : `ollama:${oll}`))
-          setModelSpec(defaultModel)
-        } catch {}
+        // Determine candidate models and apply persisted preferences if valid
+        const oll = v.models?.ollama || 'llama3.2:latest'
+        const gem = v.models?.gemini || 'gemini-2.5'
+        const oai = v.models?.openai || 'gpt-5.1'
+        const candidates: string[] = [`ollama:${oll}`]
+        if (v.gemini_enabled) candidates.push(`gemini:${gem}`)
+        if (v.openai_enabled) candidates.push(`openai:${oai}`)
+        const prefs = loadPrefs()
+        const preferredModel = prefs?.modelSpec && candidates.includes(prefs.modelSpec) ? prefs.modelSpec : (v.openai_enabled ? `openai:${oai}` : (v.gemini_enabled ? `gemini:${gem}` : `ollama:${oll}`))
+        setModelSpec(preferredModel)
         setRecentRuns(orderRuns(runs))
-        setSemanticThreshold(Number(v.semantic_threshold) || 0.8)
-        if (typeof (v as any).hallucination_threshold === 'number') {
-          setHallucinationThreshold(Number((v as any).hallucination_threshold))
-        }
+        // thresholds: prefer persisted, else server defaults
+        const defaultSem = Number(v.semantic_threshold) || 0.8
+        const defaultHall = typeof (v as any).hallucination_threshold === 'number' ? Number((v as any).hallucination_threshold) : 0.8
+        setSemanticThreshold(typeof prefs?.semanticThreshold === 'number' ? prefs!.semanticThreshold! : defaultSem)
+        setHallucinationThreshold(typeof prefs?.hallucinationThreshold === 'number' ? prefs!.hallucinationThreshold! : defaultHall)
         // Seed metric toggles from persisted settings.metrics if available
         const cfg = (s && s.metrics && Array.isArray(s.metrics.metrics)) ? s.metrics.metrics : null
         if (cfg) {
@@ -165,8 +189,12 @@ export default function RunsPage() {
           setMetricAdherence(byName['adherence'] ?? true)
           setMetricHallucination(byName['hallucination'] ?? true)
         }
-        // default dataset
-        if (d && d.length) setDatasetId(d[0].dataset_id)
+        // dataset: prefer persisted if still available
+        if (d && d.length) {
+          const prefDs = prefs?.datasetId
+          const exists = prefDs && d.some(x => x.dataset_id === prefDs)
+          setDatasetId(exists ? (prefDs as string) : d[0].dataset_id)
+        }
         // If a running/paused job exists, resume polling it
         const active = runs.find(x => x.state && ['running','paused','cancelling'].includes(String(x.state)) && !x.stale)
         if (active?.job_id) {
@@ -193,6 +221,16 @@ export default function RunsPage() {
     load()
     return () => { if (pollRef.current) window.clearInterval(pollRef.current) }
   }, [vertical])
+
+  // Persist preferences whenever they change
+  useEffect(() => {
+    savePrefs({
+      modelSpec,
+      semanticThreshold,
+      hallucinationThreshold,
+      datasetId,
+    })
+  }, [modelSpec, semanticThreshold, hallucinationThreshold, datasetId, storageKey])
 
   const availableModels = useMemo(() => {
     const arr: { id: string; label: string }[] = []
